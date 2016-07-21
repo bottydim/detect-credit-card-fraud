@@ -432,7 +432,7 @@ if __name__ == "__main__":
                     ][x]
     add_info = '60'                
     
-    samples_per_epoch = trans_num_table(table,disk_engine,mode='train')
+    samples_per_epoch = trans_num_table(table,disk_engine,mode='train',trans_mode='train')
     print "SAMPLES per epoch:",samples_per_epoch
     # samples_per_epoch = 1959
     # table = 'data_trim'
@@ -491,13 +491,24 @@ if __name__ == "__main__":
 
 
                         print '#########################TRAIN STATS################'
+                        val_samples = trans_num_table(table,disk_engine,mode='train',trans_mode='train')
+                        print '# samples',val_samples
                         plt_filename = './figures/GS/'+table+'/'+'ROC_TRAIN'+title+'_'+add_info+".png" 
                         data_gen =  data_generator(disk_engine,encoders,table=table)
-                        train_list  = eval_auc_generator(model, data_gen, samples_per_epoch, max_q_size=10000,plt_filename=plt_filename)
-                        print train_list 
+
+                        eval_list  = eval_auc_generator(model, data_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
+                        auc_val = eval_list[0]
+                        clc_report = eval_list[1]
+                        acc = eval_list[2]
+                        print "AUC:",auc_val 
+                        print 'CLassification report'
+                        print clc_report
+                        print 'Accuracy'
+                        print acc
                         print '##################EVALUATION USERS#########################'
 
-                        val_samples = trans_num_table(table,disk_engine,mode='test')
+                        val_samples = trans_num_table(table,disk_engine,mode='test',trans_mode='train')
+                        print '# samples',val_samples
                         eval_gen = eval_users_generator(disk_engine,encoders,table=table,
                                 sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = lbl_pad_val, pad_val = pad_val)
 
@@ -513,7 +524,8 @@ if __name__ == "__main__":
                         print '#####################################################'
                         print '##################EVALUATION Transacctions#########################'
 
-                        val_samples = trans_num_table(table,disk_engine,mode='test')
+                        val_samples = trans_num_table(table,disk_engine,mode='train',trans_mode='test')
+                        print '# samples',val_samples
                         eval_gen = eval_trans_generator(disk_engine,encoders,table=table,
                                 sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = lbl_pad_val, pad_val = pad_val)
 
@@ -529,10 +541,11 @@ if __name__ == "__main__":
                         print '#####################################################'
                         print '##################EVALUATION Pure#########################'
 
-                        val_samples = trans_num_table(table,disk_engine,mode='test')
                         user_mode = 'test'
                         trans_mode = 'test'
-                        eval_gen = eval_generator(user_mode,trans_mode,disk_engine,encoders,table='data_trim',
+                        val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
+                        print '# samples',val_samples
+                        eval_gen = eval_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
                                          sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1)
 
                         eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)

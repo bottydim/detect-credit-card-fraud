@@ -139,7 +139,7 @@ def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,cuttof
         df_train = df_u[df_u['AUTHZN_RQST_PROC_TM'] < last_date_num]
         df_test = df_u[df_u['AUTHZN_RQST_PROC_TM'] >= last_date_num]
         print 'train/test sequence split:',np.array(df_train).shape[0],np.array(df_test).shape[0]
-        print user
+        print 'user with fraud',user
 #     display(df_train)
 #     display(df_test)
 
@@ -211,38 +211,61 @@ def sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,mode='trai
         return X_test_S_pad,y_test_S
 
 
-def trans_num_table(table,disk_engine,mode='train'):
-    dataFrame_acc = pd.read_sql_query('select distinct acct_id, FRD_IND '
-                       'from {table} '
-                       'order by FRD_IND'.format(table=table), disk_engine)
-    dataFrame = pd.read_sql_query('select acct_id, count(*) as num_trans '
-                       'from {table} '
-                       'group by acct_id '
-                        'order by num_trans'
+def get_count_table(table,disk_engine,cutt_off_date,trans_mode):
+    query = ['select acct_id,count(*) '
+        'as num_trans from {table} '
+        'where AUTHZN_RQST_PROC_TM <= '
+        '(select AUTHZN_RQST_PROC_TM '
+        'from {table} '
+        'where FRD_IND_SWT_DT >=' 
+             '"',
+        cutt_off_date,
+             '" '
+        'order by AUTHZN_RQST_PROC_TM limit 1) '
+        'group by acct_id order by num_trans']
+    query = ''.join(query)
+    query = query.format(table=table)
+    if trans_mode == 'test':
+        query = query.replace('<=','>')
+    dataFrame = pd.read_sql_query(query
                        .format(table=table), disk_engine)
-    u_list = set(dataFrame_acc.acct_id)
+    return dataFrame
+
+def trans_num_table(table,disk_engine,mode='train',cutt_off_date='2014-05-11',trans_mode='train'):
+
+    dataFrame = get_count_table(table,disk_engine,cutt_off_date,trans_mode)
+    u_list = set(dataFrame.acct_id)
     
     user_tr,user_ts = train_test_split(list(u_list), test_size=0.33, random_state=42)
-    print 'Distinct users:',len(u_list)
+
     total_t =0
     if mode == 'train':
         users = user_tr
     else:
         users = user_ts
-    print 'Using:',len(users)
+    
     total_t = total_trans_batch(users,dataFrame)
     return math.ceil(total_t)
 
+
 def total_trans_batch(users,dataFrame_count):
     num_trans = 0
+    users = set(users)
     for user in users:
         num_trans+=get_num_trans(user,dataFrame_count)
     return num_trans
+
 def get_num_trans(user,dfc):
     try:
-        seq_len = dfc[dfc['acct_id']==user].values[0][1]
+        df = dfc[dfc['acct_id']==user]
+        if df.empty:
+            print " user not existing in the table",user
+            seq_len = 0
+        else:
+            seq_len = dfc[dfc['acct_id']==user].values[0][1]
     except:
-        display(dataFrame_count.head(5))
+        print dfc[dfc['acct_id']==user]
+        raise
     return math.ceil(1.0*seq_len/seq_len_param)
 
 def add_user(index,u_list,dataFrame_count,users):
@@ -253,25 +276,14 @@ def add_user(index,u_list,dataFrame_count,users):
         return get_num_trans(user,dataFrame_count)
     else:
         return 0
-def user_generator(disk_engine,table='data_trim',sample_size=50,usr_ratio=80,mode='train'):
-#     dataFrame_Y = pd.read_sql_query('select distinct acct_id, FRD_IND '
-#                        'from {table} '
-#                        'where FRD_IND="Y"'.format(table=table), disk_engine)
-#     dataFrame_N = pd.read_sql_query('select distinct acct_id, FRD_IND '
-#                        'from {table} '
-#                        'where FRD_IND="N"'.format(table=table), disk_engine)
-    dataFrame = pd.read_sql_query('select distinct acct_id, FRD_IND '
-                       'from {table} '
-                       'order by FRD_IND'.format(table=table), disk_engine)
-    dataFrame_count = pd.read_sql_query('select acct_id, count(*) as num_trans '
-                       'from {table} '
-                       'group by acct_id '
-                        'order by -num_trans'
-                       .format(table=table), disk_engine)
+def user_generator(disk_engine,table='data_trim',sample_size=50,usr_ratio=80,mode='train',cutt_off_date='2014-05-11',trans_mode='train'):
+
+
+    dataFrame_count = get_count_table(table,disk_engine,cutt_off_date,trans_mode)
     
 #     display(dataFrame_count.head(5)) 
     print "User List acquired"
-    u_list = list(dataFrame.acct_id)
+    u_list = list(dataFrame_count.acct_id)
 #     u_list.extend(list(dataFrame_Y.acct_id))
     print 'total # users:',len(u_list)
     u_set = set(u_list)
@@ -417,8 +429,9 @@ def eval_auc_generator(model, generator, val_samples, max_q_size=10000,plt_filen
     all_y_hat = np.array(all_y_hat,dtype=np.dtype(float))
     print all_y_r.shape
     print all_y_hat.shape
-    print '# fraud transaction',all_y_r[np.where(all_y_r==1)].shape
-    print '# total transactions',processed_samples
+    print '# fraud transactions',all_y_r[np.where(all_y_r==1)].shape
+    print '# total transactions', all_y_r.shape
+    print '# total sequences',processed_samples
     #######ROC CURVE
     fpr,tpr,tresholds = roc_curve(all_y_r,all_y_hat)
     print all_y_hat
@@ -431,7 +444,7 @@ def eval_auc_generator(model, generator, val_samples, max_q_size=10000,plt_filen
     #########Need to determine treshold 
     all_y_hat[np.where(all_y_hat>=tresholds[2])] = 1
     all_y_hat[np.where(all_y_hat<tresholds[2])]  = 0
-    clc_report = classification_report(all_y_r, all_y_hat, target_names=target_names)
+    clc_report = classification_report(all_y_r, all_y_hat, target_names=target_names,digits=7)
     ############Accuracy
     acc = accuracy_score(all_y_r,all_y_hat)
     if plt_filename != None:
