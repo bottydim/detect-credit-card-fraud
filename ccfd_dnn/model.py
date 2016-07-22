@@ -24,6 +24,7 @@ from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model
 from keras.layers import Input, Dense, GRU, LSTM, TimeDistributed, Masking
 from keras.engine.training import *
+from IPython.display import display
 
 time_cols = ['AUTHZN_RQST_PROC_TM','PREV_ADR_CHNG_DT','PREV_PMT_DT','PREV_CARD_RQST_DT','FRD_IND_SWT_DT']
 seq_len_param = 60.0
@@ -79,31 +80,28 @@ def get_user_info(user,table,disk_engine):
     df_u = pd.read_sql_query('select * from {table} where acct_id = {user}'.format(table=table,user=user),disk_engine)
     return df_u
 
-def get_last_date(df_u,cuttoff_date):
-#     print "Before Trim"
-#     display(df_u)
-    df_trim = df_u[df_u['FRD_IND_SWT_DT'] >= pd.to_numeric(pd.Series(pd.to_datetime(cuttoff_date)))[0]]
-#     print "After Trim"
-#     display(df_trim)
-    ### a historicly later transaction may have been confirmed earlier than a historicly preceeding T
-    df_trim = df_trim.sort_values('AUTHZN_RQST_PROC_TM',ascending=True,inplace=False)
-    df_trim = df_trim.reset_index(drop=True)
-#     print "After Reorder"
-#     display(df_trim)
-#     display(df_trim)
-    if not df_trim.empty:
-#         print 'value to be returned',df_trim['AUTHZN_RQST_PROC_TM'][0]
-        return df_trim['AUTHZN_RQST_PROC_TM'][0]
-    else:
-        return None
-
+def get_last_date(cutt_off_date,table,disk_engine):
+    query = ['select AUTHZN_RQST_PROC_TM '
+    'from {table} '
+    'where FRD_IND_SWT_DT >=' 
+         '"',
+    cutt_off_date,
+         '" '
+    'order by AUTHZN_RQST_PROC_TM limit 1 '
+    ]
+    query = ''.join(query)
+    query = query.format(table=table)
+    dataFrame = pd.read_sql_query(query
+                       .format(table=table), disk_engine)
+    print pd.to_numeric(pd.to_datetime(dataFrame['AUTHZN_RQST_PROC_TM']))
+    return pd.to_numeric(pd.to_datetime(dataFrame['AUTHZN_RQST_PROC_TM']))[0]
 
 def get_col_id(col,df):
     col_list = list(df.columns.values)
     col_list.remove('index')
     col_list.index(col)
     
-def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,cuttoff_date='2014-05-11'):
+def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_date):
     df_u = get_user_info(user,table,disk_engine)
     unav_cols = ['AUTHZN_APPRL_CD','TSYS_DCLN_REAS_CD','AUTHZN_RESPNS_CD','AUTHZN_APPRD_AMT',]
     nan_rpl = ['AUTHZN_APPRL_CD',]
@@ -127,26 +125,25 @@ def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,cuttof
 #     display(df_u[df_u['FRD_IND_SWT_DT'] < pd.to_numeric(pd.Series(pd.to_datetime(cuttoff_date)))[0]].head(8))
 ### This is the last date, before which transaction will be used for trainning. 
 ### It coresponds to the date when the last knwon fraudulent transaction was confirmed
-    last_date_num = get_last_date(df_u,cuttoff_date)
-    if last_date_num == None:
-        train = np.array(df_u)
-#         print "No cutt offs"
-#         print train[:,0:-2].shape
-#         print "labels"
-#         print train[:,-2].shape
+    last_date_num = last_date
+
+    df_train = df_u[df_u['AUTHZN_RQST_PROC_TM'] < last_date_num]
+    # display(df_train.head())
+    df_test = df_u[df_u['AUTHZN_RQST_PROC_TM'] >= last_date_num]
+    # display(df_test.head())
+    train = np.array(df_train)
+    test = np.array(df_test)
+    if df_train.empty:
+        return [],test[:,0:-2],[],test[:,-2]
+    if df_test.empty:
+        # print 'train/test sequence split:',np.array(df_train).shape[0],np.array(df_test).shape[0]
         return train[:,0:-2],[],train[:,-2],[]
-    else:
-        df_train = df_u[df_u['AUTHZN_RQST_PROC_TM'] < last_date_num]
-        df_test = df_u[df_u['AUTHZN_RQST_PROC_TM'] >= last_date_num]
-        print 'train/test sequence split:',np.array(df_train).shape[0],np.array(df_test).shape[0]
-        print 'user with fraud',user
 #     display(df_train)
 #     display(df_test)
 
         
-    train = np.array(df_train)
-    test = np.array(df_test)
-    print 'test shape in sequencer',test.shape
+
+    # print 'test shape in sequencer',test.shape
     return train[:,0:-2],test[:,0:-2],train[:,-2],test[:,-2]
 
 def chunck_seq(seq_list,seq_len=seq_len_param):
@@ -166,7 +163,7 @@ def generate_sample_w(y_true,class_weight):
         for j in range(shps[1]):
             sample_w[i].append(class_weight[y_true[i,j,0]])
     return np.asarray(sample_w)
-def sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,mode='train',table='data_trim',class_weight=None):
+def sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,mode='train',table='data_trim',class_weight=None,):
     X_train_S = []
     X_test_S = []
     y_train_S =[]
@@ -175,23 +172,35 @@ def sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,mode='trai
     for user in users:
     #     if user != '337018623': 
     #         continue
-        X_train,X_test,y_train,y_test = generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val)
-        if X_test != []:
-            print 'shape in generator',X_test.shape
+        X_train,X_test,y_train,y_test = generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_date)
+        assert X_train.shape[0] == y_train.shape[0], 'Sequence mismatch for user {user}: X_Train.shape {x_shape}'\
+                    ' : y_train.shape {y_shape} \n'.format(user=user,x_shape=X_train.shape,y_shape=y_train.shape)
+
+        # print 'shapes:',X_train.shape[0],":",y_train.shape[0]
+        # if X_test != []:
+        #     print 'shape in generator',X_test.shape
         X_train_S.append(X_train)
         X_test_S.append(X_test) 
         y_train_S.append(y_train)
         y_test_S.append(y_test)
     #     break
-    X_test_S = filter(lambda a: a != [], X_test_S)
-    y_test_S = filter(lambda a: a != [], y_test_S)
+
+
+    X_train_S = filter(lambda a: len(a) != 0, X_train_S)
+    y_train_S = filter(lambda a: len(a) != 0, y_train_S)
+    X_test_S = filter(lambda a: len(a) != 0, X_test_S)
+    y_test_S = filter(lambda a: len(a) != 0, y_test_S)
+
+
+
     if mode =='train':
         # chuncked = chunck_seq(X_train_S)
         # assert 
         X_train_pad = keras.preprocessing.sequence.pad_sequences(chunck_seq(X_train_S), maxlen=int(seq_len_param),dtype='float32',value=pad_val)
         y_train_S = keras.preprocessing.sequence.pad_sequences(np.array(chunck_seq(y_train_S)), maxlen=int(seq_len_param),dtype='float32',value=lbl_pad_val)
         y_train_S = np.expand_dims(y_train_S, -1)
-        print 'labels shape',y_train_S.shape
+        # print 'xs shape',X_train_pad.shape
+        # print 'labels shape',y_train_S.shape
         if class_weight != None:
 
             sample_w = generate_sample_w(y_train_S,class_weight)
@@ -201,10 +210,10 @@ def sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,mode='trai
 #         y_train_S = to_categorical(y_train_S,3)
         return X_train_pad,y_train_S
     else:
-        print 'len test',len(X_test_S)
         X_test_S_pad = keras.preprocessing.sequence.pad_sequences(chunck_seq(X_test_S), maxlen=int(seq_len_param),dtype='float32',value=pad_val)
         y_test_S = keras.preprocessing.sequence.pad_sequences(np.array(chunck_seq(y_test_S)),maxlen=int(seq_len_param),dtype='float32',value=lbl_pad_val)
         y_test_S = np.expand_dims(y_test_S, -1)
+        print 'labels shape',y_test_S.shape
         if class_weight != None:
             sample_w = generate_sample_w(y_train_S,class_weight)
             return X_train_pad,y_train_S,sample_w
@@ -293,8 +302,10 @@ def user_generator(disk_engine,table='data_trim',sample_size=50,usr_ratio=80,mod
     if mode == 'train':
         u_list =  user_tr
     else:
-        u_list =  user_ts     
-    print 'used # sequences:',total_trans_batch(u_list,dataFrame_count)                         
+        u_list =  user_ts
+    if trans_mode == 'test':
+        print 'next value is inaccurate, please implement'
+        print 'used # sequences:',total_trans_batch(u_list,dataFrame_count)                         
 #     display(dataFrame.acct_id)
     u_list = list(set(u_list))
     print 'return set cardinality:',len(u_list)
@@ -350,13 +361,15 @@ def eval_users_generator(disk_engine,encoders,table='data_trim',sample_size=400,
         yield sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,mode='train',table=table,class_weight=class_weight)   
 
 
-def eval_generator(user_mode,trans_mode,disk_engine,encoders,table='data_trim',
-                   sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
-    user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,sample_size=sample_size,table=table,mode=user_mode)
+def data_generator(user_mode,trans_mode,disk_engine,encoders,table='data_trim',
+                   sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1,cutt_off_date='2014-05-11'):
+    user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,sample_size=sample_size,table=table,mode=user_mode,trans_mode=trans_mode)
     print "Users generator"
+    last_date = get_last_date(cutt_off_date,table,disk_engine)
+    print 'last_date calculated!'
     while True:
         users = next(user_gen)
-        yield sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,mode=trans_mode,table=table,class_weight=class_weight)
+        yield sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,mode=trans_mode,table=table,class_weight=class_weight)
 
 def eval_auc_generator(model, generator, val_samples, max_q_size=10000,plt_filename=None,acc=True):
     '''Generates predictions for the input samples from a data generator.
@@ -434,8 +447,8 @@ def eval_auc_generator(model, generator, val_samples, max_q_size=10000,plt_filen
     print '# total sequences',processed_samples
     #######ROC CURVE
     fpr,tpr,tresholds = roc_curve(all_y_r,all_y_hat)
-    print all_y_hat
-    print tresholds
+    # print all_y_hat
+    # print tresholds
     print tresholds.shape
     auc_val = auc(fpr, tpr)
     print auc_val
@@ -456,12 +469,6 @@ def eval_auc_generator(model, generator, val_samples, max_q_size=10000,plt_filen
         py.image.save_as(fig,filename=plt_filename)
     return [auc_val,clc_report,acc]
 
-def data_generator(disk_engine,encoders,table='data_trim',sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
-    user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,sample_size=sample_size,table=table)
-    print "Users generator"
-    while True:
-        users = next(user_gen)
-        yield sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,mode='train',table=table,class_weight=class_weight)
 
 
 if __name__ == "__main__":

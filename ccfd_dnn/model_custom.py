@@ -416,10 +416,10 @@ if __name__ == "__main__":
 
 
     #############GRID SEARCH #####################
-    table = 'data_trim'
-    rsl_file = './data/gs_results_trim.csv'
-    # table = 'data_little'
-    # rsl_file = './data/gs_results_little.csv'
+    # table = 'data_trim'
+    # rsl_file = './data/gs_results_trim.csv'
+    table = 'data_little'
+    rsl_file = './data/gs_results_little.csv'
     hid_dims = [512,1024]
     num_l = [3,4]
     lr_s = [5e-4,2.5e-4,7e-5]
@@ -437,7 +437,7 @@ if __name__ == "__main__":
     # samples_per_epoch = 1959
     # table = 'data_trim'
     # samples_per_epoch = 485
-    nb_epoch = 5
+    nb_epoch = 30
     lbl_pad_val = 2
     pad_val = -1
 
@@ -485,16 +485,23 @@ if __name__ == "__main__":
                         model.compile(optimizer=optimizer,
                                         loss='sparse_categorical_crossentropy',
                                         metrics=['accuracy'])
-                        data_gen =  data_generator(disk_engine,encoders,table=table)
+                        user_mode = 'train'
+                        trans_mode = 'train'
+                        data_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
+                                         sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1)
                         history = model.fit_generator(data_gen, samples_per_epoch, nb_epoch, verbose=1, callbacks=[],validation_data=None, nb_val_samples=None, class_weight=None, max_q_size=10000)
                         py.sign_in('bottydim', 'o1kuyms9zv') 
 
 
                         print '#########################TRAIN STATS################'
-                        val_samples = trans_num_table(table,disk_engine,mode='train',trans_mode='train')
+                        user_mode = 'train'
+                        trans_mode = 'train'
+                        val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
                         print '# samples',val_samples
-                        plt_filename = './figures/GS/'+table+'/'+'ROC_TRAIN'+title+'_'+add_info+".png" 
-                        data_gen =  data_generator(disk_engine,encoders,table=table)
+                        plt_filename = './figures/GS/'+table+'/'+'ROC_TRAIN'+title+'_'+add_info+".png"
+
+                        data_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
+                                         sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
 
                         eval_list  = eval_auc_generator(model, data_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
                         auc_val = eval_list[0]
@@ -507,10 +514,14 @@ if __name__ == "__main__":
                         print acc
                         print '##################EVALUATION USERS#########################'
 
-                        val_samples = trans_num_table(table,disk_engine,mode='test',trans_mode='train')
+                        user_mode = 'test'
+                        trans_mode = 'train'
+                        val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
                         print '# samples',val_samples
-                        eval_gen = eval_users_generator(disk_engine,encoders,table=table,
-                                sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = lbl_pad_val, pad_val = pad_val)
+                        plt_filename = './figures/GS/'+table+'/'+'ROC_TRAIN'+title+'_'+add_info+".png"
+
+                        eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
+                                         sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
 
                         eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
                         auc_val = eval_list[0]
@@ -522,12 +533,16 @@ if __name__ == "__main__":
                         print 'Accuracy'
                         print acc
                         print '#####################################################'
-                        print '##################EVALUATION Transacctions#########################'
+                        print '##################EVALUATION Transactions#########################'
 
-                        val_samples = trans_num_table(table,disk_engine,mode='train',trans_mode='test')
+                        user_mode = 'train'
+                        trans_mode = 'test'
+                        val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
                         print '# samples',val_samples
-                        eval_gen = eval_trans_generator(disk_engine,encoders,table=table,
-                                sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = lbl_pad_val, pad_val = pad_val)
+                        plt_filename = './figures/GS/'+table+'/'+'ROC_TRAIN'+title+'_'+add_info+".png"
+
+                        eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
+                                         sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
 
                         eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
                         auc_val = eval_list[0]
@@ -545,7 +560,7 @@ if __name__ == "__main__":
                         trans_mode = 'test'
                         val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
                         print '# samples',val_samples
-                        eval_gen = eval_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
+                        eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
                                          sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1)
 
                         eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
