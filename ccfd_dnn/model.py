@@ -173,7 +173,8 @@ def sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,
     #     if user != '337018623': 
     #         continue
         X_train,X_test,y_train,y_test = generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_date)
-        assert X_train.shape[0] == y_train.shape[0], 'Sequence mismatch for user {user}: X_Train.shape {x_shape}'\
+        if type(X_train) != list:
+            assert X_train.shape[0] == y_train.shape[0], 'Sequence mismatch for user {user}: X_Train.shape {x_shape}'\
                     ' : y_train.shape {y_shape} \n'.format(user=user,x_shape=X_train.shape,y_shape=y_train.shape)
 
         # print 'shapes:',X_train.shape[0],":",y_train.shape[0]
@@ -304,7 +305,7 @@ def user_generator(disk_engine,table='data_trim',sample_size=50,usr_ratio=80,mod
     else:
         u_list =  user_ts
     if trans_mode == 'test':
-        print 'next value is inaccurate, please implement'
+        print 'used # sequences: value is inaccurate, please implement'
         print 'used # sequences:',total_trans_batch(u_list,dataFrame_count)                         
 #     display(dataFrame.acct_id)
     u_list = list(set(u_list))

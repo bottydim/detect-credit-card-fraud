@@ -21,9 +21,9 @@ import theano
 import keras
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model
-from keras.layers import Input, Dense, GRU, LSTM, TimeDistributed, Masking
+from keras.layers import Input, Dense, GRU, LSTM, TimeDistributed, Masking, merge
 from model import *
-# time_cols = ['AUTHZN_RQST_PROC_TM','PREV_ADR_CHNG_DT','PREV_PMT_DT','PREV_CARD_RQST_DT','FRD_IND_SWT_DT']
+# time_cols = ['AUTHZN_RQST_PROC_TM','prev_frw_ADR_CHNG_DT','prev_frw_PMT_DT','prev_frw_CARD_RQST_DT','FRD_IND_SWT_DT']
 # seq_len_param = 60.0
 # def encode_column(df_col):
 #     print df_col.shape
@@ -47,7 +47,7 @@ from model import *
 #     df = pd.read_sql_query('select * from {table} limit 5'.format(table=table),disk_engine)
 #     col_names = df.columns.values
 #     encoders = {}
-#     time_cols = ['AUTHZN_RQST_PROC_TM','PREV_ADR_CHNG_DT','PREV_PMT_DT','PREV_CARD_RQST_DT','FRD_IND_SWT_DT']
+#     time_cols = ['AUTHZN_RQST_PROC_TM','prev_frw_ADR_CHNG_DT','prev_frw_PMT_DT','prev_frw_CARD_RQST_DT','FRD_IND_SWT_DT']
 #     for c,name in enumerate(col_names):
 #         tp = df.dtypes[c]
 #     #     print tp
@@ -313,113 +313,25 @@ if __name__ == "__main__":
     # table = 'data_trim'
     # lbl_pad_val = 2
     # pad_val = -1
-    # class_weight = {0 : 1.,
-    #             1: 10.,
-    #             2: 0.}
+
+
+
+
+
+
+
+    #######################Settings#############################################
 
 
 
     ####################################DATA SOURCE################################
-    # table = 'data_trim'
+    table = 'data_trim'
+    rsl_file = './data/gs_results_trim.csv'
+    # table = 'data_little'
+    # rsl_file = './data/gs_results_little.csv'
     ################################################################################
 
-    # encoders = populate_encoders(table,disk_engine)
-    # print "Encoders populated"
 
-
-
-    ####################################TEST################################
-    # print 'Verifying Dimensions'
-    # data_gen =  data_generator(disk_engine,encoders,table='data_trim',class_weight=class_weight)
-    # X_train_pad,y_train_S,sample_w = next(data_gen)
-    # print X_train_pad.shape
-    # print y_train_S.shape
-    # print sample_w.shape
-    # print 'Completed'
-    # ################################################################################
-
-    ######################SOMEHOW this is working or not really
-    # input_layer = Input(shape=(50, 44),name='main_input')
-    # mask = Masking(mask_value=0)(input_layer)
-    # prev = GRU(hidden_dim,#input_length=50,
- #                      return_sequences=True,go_backwards=False,stateful=False,
- #                      unroll=False,consume_less='gpu',
- #                      init='glorot_uniform', inner_init='orthogonal', activation='tanh',
- #              inner_activation='hard_sigmoid', W_regularizer=None, U_regularizer=None,
- #              b_regularizer=None, dropout_W=0.0, dropout_U=0.0)(mask)
-    # # for i in range(num_layers-1):
-    # #     prev = GRU(output_dim, init='glorot_uniform', inner_init='orthogonal', activation='tanh',
-    # #            inner_activation='hard_sigmoid', W_regularizer=None, U_regularizer=None,
-    # #            b_regularizer=None, dropout_W=0.0, dropout_U=0.0)
-    # output_layer = TimeDistributed(Dense(1))(prev)
-    # model = Model(input=[input_layer],output=[output_layer])
-    # model.compile(optimizer=optimizer,
- #                  loss='binary_crossentropy',
- #                  metrics=['accuracy'])
-    # data_gen =  data_generator(disk_engine,encoders,table=table)
-    # input_layer = Input(shape=(50, 44),name='main_input')
-    # mask = Masking(mask_value=pad_val)(input_layer)
-    # prev = GRU(hidden_dim,#input_length=50,
-    #                 return_sequences=True,go_backwards=False,stateful=False,
-    #                 unroll=False,consume_less='gpu',
-    #                 init='glorot_uniform', inner_init='orthogonal', activation='tanh',
-    #         inner_activation='hard_sigmoid', W_regularizer=None, U_regularizer=None,
-    #         b_regularizer=None, dropout_W=0.0, dropout_U=0.0)(mask)
-    # # for i in range(num_layers-1):
-    # #     prev = GRU(output_dim, init='glorot_uniform', inner_init='orthogonal', activation='tanh',
-    # #            inner_activation='hard_sigmoid', W_regularizer=None, U_regularizer=None,
-    # #            b_regularizer=None, dropout_W=0.0, dropout_U=0.0)
-    # output_layer = TimeDistributed(Dense(3,activation='softmax'))(prev)
-    # model = Model(input=[input_layer],output=[output_layer])
-    # model.compile(optimizer=optimizer,
-    #             loss='sparse_categorical_crossentropy',
-    # #               metrics=['accuracy','hinge','squared_hinge','binary_accuracy','binary_crossentropy'])
-    #             metrics=['accuracy'],
-    #             sample_weight_mode="temporal")
-    # data_gen =  data_generator(disk_engine,encoders,table=table,class_weight=class_weight)
-    # # data_gen =  data_generator(disk_engine,encoders,table=table,class_weight=class_weight)
-    # history = model.fit_generator(data_gen, samples_per_epoch, nb_epoch, verbose=1, callbacks=[],validation_data=None, nb_val_samples=None, class_weight=class_weight, max_q_size=10000)
-
-
-
-    # hera_model = HeraModel(
-    #     {
-    #         'id': '200 epochs' # any ID you want to use to identify your model
-    #     },
-    #     {
-    #         # location of the local hera server, out of the box it's the following
-    #         'domain': 'localhost',
-    #         'port': 4000
-    #     }
-    # )
-    # history = model.fit_generator(data_gen, samples_per_epoch, nb_epoch, verbose=1, callbacks=[hera_model.callback],validation_data=None, nb_val_samples=None, class_weight=None, max_q_size=10)
-    # py.sign_in('bottydim', 'o1kuyms9zv') 
-    # title = 'Training_Loss'
-    # fig = {
-    #     'data': [Scatter(
-    #         x=history.epoch,
-    #         y=history.history['loss'])],
-    #     'layout': {'title': title}
-    #     }
-    # py.image.save_as(fig,filename='./figures/'+title+".png")
-    # # iplot(fig,filename='figures/'+title,image='png')
-    # title = 'Training Acc'
-    # fig = {
-    #     'data': [Scatter(
-    #         x=history.epoch,
-    #         y=history.history['acc'])],
-    #     'layout': {'title': title}
-    #     }
-    # py.image.save_as(fig,filename='./figures/'+title+".png")
-    # iplot(fig,filename='figures/'+title,image='png')
-
-
-
-    #############GRID SEARCH #####################
-    # table = 'data_trim'
-    # rsl_file = './data/gs_results_trim.csv'
-    table = 'data_little'
-    rsl_file = './data/gs_results_little.csv'
     hid_dims = [512,1024]
     num_l = [3,4]
     lr_s = [5e-4,2.5e-4,7e-5]
@@ -437,9 +349,14 @@ if __name__ == "__main__":
     # samples_per_epoch = 1959
     # table = 'data_trim'
     # samples_per_epoch = 485
-    nb_epoch = 30
+    nb_epoch = 1
     lbl_pad_val = 2
     pad_val = -1
+
+
+        # class_weight = {0 : 1.,
+    #             1: 10.,
+    #             2: 0.}
 
     encoders = populate_encoders_scale(table,disk_engine)
     gru_dict = {}
@@ -455,32 +372,32 @@ if __name__ == "__main__":
                         print title
                         input_layer = Input(shape=(int(seq_len_param), 44),name='main_input')
                         mask = Masking(mask_value=0)(input_layer)
-                        if rnn == 'gru':
-                            prev = GRU(hidden_dim,#input_length=50,
-                                                return_sequences=True,go_backwards=False,stateful=False,
-                                                unroll=False,consume_less='gpu',
-                                                init='glorot_uniform', inner_init='orthogonal', activation='tanh',
-                                        inner_activation='hard_sigmoid', W_regularizer=None, U_regularizer=None,
-                                        b_regularizer=None, dropout_W=0.0, dropout_U=0.0)(mask)
-                        else:
-                            prev = LSTM(hidden_dim, return_sequences=True,go_backwards=False,stateful=False,
-                                init='glorot_uniform', inner_init='orthogonal', 
-                                forget_bias_init='one', activation='tanh', inner_activation='hard_sigmoid',
-                                W_regularizer=None, U_regularizer=None, b_regularizer=None, dropout_W=0.0, dropout_U=0.0)(mask)
-                        for i in range(num_layers-1):
+                        x = mask
+                        for i in range(num_layers):
                             if rnn == 'gru':
-                                prev = GRU(hidden_dim,#input_length=50,
+                                prev_frw = GRU(hidden_dim,#input_length=50,
                                                     return_sequences=True,go_backwards=False,stateful=False,
                                                     unroll=False,consume_less='gpu',
                                                     init='glorot_uniform', inner_init='orthogonal', activation='tanh',
                                             inner_activation='hard_sigmoid', W_regularizer=None, U_regularizer=None,
-                                            b_regularizer=None, dropout_W=0.0, dropout_U=0.0)(prev)
+                                            b_regularizer=None, dropout_W=0.0, dropout_U=0.0)(x)
+                                prev_bck = GRU(hidden_dim,#input_length=50,
+                                                    return_sequences=True,go_backwards=True,stateful=False,
+                                                    unroll=False,consume_less='gpu',
+                                                    init='glorot_uniform', inner_init='orthogonal', activation='tanh',
+                                            inner_activation='hard_sigmoid', W_regularizer=None, U_regularizer=None,
+                                            b_regularizer=None, dropout_W=0.0, dropout_U=0.0)(x)
                             else:
-                                prev = LSTM(hidden_dim, return_sequences=True,go_backwards=False,stateful=False,
+                                prev_frw = LSTM(hidden_dim, return_sequences=True,go_backwards=False,stateful=False,
                                     init='glorot_uniform', inner_init='orthogonal', 
                                     forget_bias_init='one', activation='tanh', inner_activation='hard_sigmoid',
-                                    W_regularizer=None, U_regularizer=None, b_regularizer=None, dropout_W=0.0, dropout_U=0.0)(prev)
-                        output_layer = TimeDistributed(Dense(3,activation='softmax'))(prev)
+                                    W_regularizer=None, U_regularizer=None, b_regularizer=None, dropout_W=0.0, dropout_U=0.0)(x)
+                                prev_bck = LSTM(hidden_dim, return_sequences=True,go_backwards=True,stateful=False,
+                                    init='glorot_uniform', inner_init='orthogonal', 
+                                    forget_bias_init='one', activation='tanh', inner_activation='hard_sigmoid',
+                                    W_regularizer=None, U_regularizer=None, b_regularizer=None, dropout_W=0.0, dropout_U=0.0)(x)
+                            x = merge([prev_frw, prev_bck], mode='concat')
+                        output_layer = TimeDistributed(Dense(3,activation='softmax'))(x)
                         model = Model(input=[input_layer],output=[output_layer])
                         model.compile(optimizer=optimizer,
                                         loss='sparse_categorical_crossentropy',
