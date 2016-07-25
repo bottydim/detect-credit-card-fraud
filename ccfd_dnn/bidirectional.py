@@ -342,7 +342,7 @@ if __name__ == "__main__":
                     # keras.optimizers.Adam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08),
                     # keras.optimizers.Nadam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08, schedule_decay=0.004)
                     ][x]
-    add_info = '60'                
+    add_info = '60_BIRNN'                
     
     samples_per_epoch = trans_num_table(table,disk_engine,mode='train',trans_mode='train')
     print "SAMPLES per epoch:",samples_per_epoch
@@ -368,7 +368,7 @@ if __name__ == "__main__":
                 optimizer = opts(opt_id,lr)
                 for num_layers in num_l:
                     for rnn in ['gru']:
-                        title = 'Training_Loss'+'_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_'+str(type(optimizer).__name__)+'_'+str(lr)
+                        title = 'Bidirectional_Loss'+'_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_'+str(type(optimizer).__name__)+'_'+str(lr)
                         print title
                         input_layer = Input(shape=(int(seq_len_param), 44),name='main_input')
                         mask = Masking(mask_value=0)(input_layer)

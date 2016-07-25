@@ -450,14 +450,27 @@ def eval_auc_generator(model, generator, val_samples, max_q_size=10000,plt_filen
     fpr,tpr,tresholds = roc_curve(all_y_r,all_y_hat)
     # print all_y_hat
     # print tresholds
-    print tresholds.shape
+    print 'False Positive Rates'
+    print fpr
+    print 'True Positive Rates'
+    print tpr
+    ####################DETERMINE CUTOFF TRESHOLD############
+    tr_shape = tresholds.shape
+    print 'Tresholds shape:',tr_shape
+    if tr_shape[0]>3:
+        cutt_off_tr = tresholds[3]
+    else:
+        cutt_off_tr = tresholds[-1]
+
+
+
     auc_val = auc(fpr, tpr)
-    print auc_val
+    print 'AUC:',auc_val
     ############CLASSIFICATION REPORT########################
     target_names = ['Genuine', 'Fraud']
     #########Need to determine treshold 
-    all_y_hat[np.where(all_y_hat>=tresholds[2])] = 1
-    all_y_hat[np.where(all_y_hat<tresholds[2])]  = 0
+    all_y_hat[np.where(all_y_hat>=cutt_off_tr)] = 1
+    all_y_hat[np.where(all_y_hat<cutt_off_tr)]  = 0
     clc_report = classification_report(all_y_r, all_y_hat, target_names=target_names,digits=7)
     ############Accuracy
     acc = accuracy_score(all_y_r,all_y_hat)
@@ -467,6 +480,7 @@ def eval_auc_generator(model, generator, val_samples, max_q_size=10000,plt_filen
         title = 'ROC'
         layout = Layout(title=title, width=800, height=640)
         fig = Figure(data=data, layout=layout)
+        print plt_filename
         py.image.save_as(fig,filename=plt_filename)
     return [auc_val,clc_report,acc]
 
