@@ -79,7 +79,7 @@ if __name__ == "__main__":
     # samples_per_epoch = 1959
     # table = 'data_trim'
     # samples_per_epoch = 485
-    nb_epoch = 30
+    nb_epoch = 1
     lbl_pad_val = 2
     pad_val = -1
 

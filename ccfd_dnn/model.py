@@ -517,7 +517,7 @@ def eval_auc_generator(model, generator, val_samples, max_q_size=10000,plt_filen
     clc_report = classification_report(all_y_r, all_y_hat, target_names=target_names,digits=7)
     ############Accuracy
     acc = accuracy_score(all_y_r,all_y_hat)
-    if plt_filename != None:
+    if plt_filename != None and not np.isnan(auc_val):
         trace = Scatter(x=fpr,y=tpr)
         data = [trace]
         title = 'ROC'
