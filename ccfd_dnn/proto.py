@@ -77,5 +77,5 @@ if __name__ == "__main__":
     table = 'data_trim'
     # user_gen = user_generator(disk_engine,table=table)
     # next(user_gen)
-    encoders = populate_encoders_scale(table,disk_engine)
-    print 'Populated!!'
+    # encoders = populate_encoders_scale(table,disk_engine)
+    # print 'Populated!!'

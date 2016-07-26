@@ -286,7 +286,8 @@ def add_user(index,u_list,dataFrame_count,users):
         return get_num_trans(user,dataFrame_count)
     else:
         return 0
-def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,mode='train',cutt_off_date='2014-05-11',trans_mode='train'):
+def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
+                   mode='train',cutt_off_date='2014-05-11',trans_mode='train',sub_sample=None):
 
 
     dataFrame_count = get_count_table(table,disk_engine,cutt_off_date,trans_mode)
@@ -308,14 +309,21 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,mode
         print 'used # sequences: value is inaccurate, please implement'
         print 'used # sequences:',total_trans_batch(u_list,dataFrame_count)                         
 #     display(dataFrame.acct_id)
+    
     u_list = list(set(u_list))
     print 'return set cardinality:',len(u_list)
     cnt = 0
     head = 0
     tail = len(u_list)-1
+    u_list_all = u_list
     while True:
         users = set()
         cnt_trans = 0
+        if sub_sample != None:
+            assert sub_sample<len(u_list_all), 'sub_sample size select is {sub_sample}, but there are only {us} users'.format(sub_sample=sub_sample,us=len(u_list_all))
+            u_list = np.random.choice(u_list_all, sub_sample,replace=False)
+            ### reset tail value, to avoid outof bounds exception
+            tail = len(u_list)-1
         while cnt_trans<batch_size:
             
             if cnt<usr_ratio:
@@ -362,15 +370,50 @@ def eval_users_generator(disk_engine,encoders,table='data_trim',batch_size=400,u
         yield sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,mode='train',table=table,class_weight=class_weight)   
 
 
-def data_generator(user_mode,trans_mode,disk_engine,encoders,table='data_trim',
-                   batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1,cutt_off_date='2014-05-11',epoch_size=None):
-    user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table,mode=user_mode,trans_mode=trans_mode)
+def data_generator(user_mode,trans_mode,disk_engine,encoders,table,
+                   batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2,
+                   pad_val = -1,cutt_off_date='2014-05-11',sub_sample=None,epoch_size=None):
+    user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table,mode=user_mode,trans_mode=trans_mode,sub_sample=sub_sample)
     print "Users generator"
     last_date = get_last_date(cutt_off_date,table,disk_engine)
     print 'last_date calculated!'
+    x_acc = []
+    y_acc = []
+    sample_w = []
+    total_eg = 0
     while True:
         users = next(user_gen)
-        yield sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,mode=trans_mode,table=table,class_weight=class_weight)
+        outs = sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,mode=trans_mode,table=table,class_weight=class_weight)
+        
+        if not(epoch_size == None):
+            while True:
+                num_seq = outs[0].shape[0]
+                print 'num_Seq',num_seq
+               
+                remain = epoch_size - (total_eg + num_seq)
+                print '{remain} = {epoch_size} - ({total_eg}+{num_seq})'.format(remain=remain,epoch_size=epoch_size,total_eg=total_eg,num_seq=num_seq)   
+                print 'remain',remain
+                if remain >=0:
+                    total_eg +=num_seq
+                    yield outs
+                else:
+                    ### remain <0 => num_seq - remain
+                    cutline = num_seq + remain
+                    temp = []
+                    for i in range(len(outs)):
+                        temp.append(outs[i][0:cutline])
+                    yield tuple(temp)
+                    ####end of epoch!
+
+                    total_eg = 0
+                    temp = []
+                    for i in range(len(outs)):
+                        temp.append(outs[0][cutline:])
+                    outs =  tuple(temp) 
+                if remain >=0:
+                    break
+        else:    
+            yield outs
 
 def eval_auc_generator(model, generator, val_samples, max_q_size=10000,plt_filename=None,acc=True):
     '''Generates predictions for the input samples from a data generator.
