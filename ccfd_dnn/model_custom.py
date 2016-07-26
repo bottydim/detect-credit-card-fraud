@@ -214,7 +214,7 @@ from model import *
 #         return get_num_trans(user,dataFrame_count)
 #     else:
 #         return 0
-# def user_generator(disk_engine,table='data_trim',sample_size=50,usr_ratio=80,mode='train'):
+# def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,mode='train'):
 # #     dataFrame_Y = pd.read_sql_query('select distinct acct_id, FRD_IND '
 # #                        'from {table} '
 # #                        'where FRD_IND="Y"'.format(table=table), disk_engine)
@@ -253,7 +253,7 @@ from model import *
 #     while True:
 #         users = set()
 #         cnt_trans = 0
-#         while cnt_trans<sample_size:
+#         while cnt_trans<batch_size:
             
 #             if cnt<usr_ratio:
 #                 cnt_trans+=add_user(head,u_list,dataFrame_count,users)
@@ -287,8 +287,8 @@ from model import *
         
 
 
-# def data_generator(disk_engine,encoders,table='data_trim',sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
-#     user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,sample_size=sample_size,table=table)
+# def data_generator(disk_engine,encoders,table='data_trim',batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
+#     user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table)
 #     print "Users generator"
 #     while True:
 #         users = next(user_gen)
@@ -488,7 +488,7 @@ if __name__ == "__main__":
                         user_mode = 'train'
                         trans_mode = 'train'
                         data_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                         sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1)
+                                         batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1)
                         history = model.fit_generator(data_gen, samples_per_epoch, nb_epoch, verbose=1, callbacks=[],validation_data=None, nb_val_samples=None, class_weight=None, max_q_size=10000)
                         py.sign_in('bottydim', 'o1kuyms9zv') 
 
@@ -503,7 +503,7 @@ if __name__ == "__main__":
                         plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
                         data_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                         sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
+                                         batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
 
                         eval_list  = eval_auc_generator(model, data_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
                         auc_val = eval_list[0]
@@ -524,7 +524,7 @@ if __name__ == "__main__":
                         plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
                         eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                         sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
+                                         batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
 
                         eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
                         auc_val = eval_list[0]
@@ -546,7 +546,7 @@ if __name__ == "__main__":
                         plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
                         eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                         sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
+                                         batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
 
                         eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
                         auc_val = eval_list[0]
@@ -568,7 +568,7 @@ if __name__ == "__main__":
                         plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
                         
                         eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                         sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1)
+                                         batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1)
                         
                         eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
                         auc_val = eval_list[0]

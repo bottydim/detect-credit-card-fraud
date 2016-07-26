@@ -216,7 +216,7 @@ def sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,
         y_test_S = np.expand_dims(y_test_S, -1)
         print 'labels shape',y_test_S.shape
         if class_weight != None:
-            sample_w = generate_sample_w(y_train_S,class_weight)
+            sample_w = generate_sample_w(y_test_S,class_weight)
             return X_train_pad,y_train_S,sample_w
         return X_test_S_pad,y_test_S
 
@@ -286,7 +286,7 @@ def add_user(index,u_list,dataFrame_count,users):
         return get_num_trans(user,dataFrame_count)
     else:
         return 0
-def user_generator(disk_engine,table='data_trim',sample_size=50,usr_ratio=80,mode='train',cutt_off_date='2014-05-11',trans_mode='train'):
+def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,mode='train',cutt_off_date='2014-05-11',trans_mode='train'):
 
 
     dataFrame_count = get_count_table(table,disk_engine,cutt_off_date,trans_mode)
@@ -316,7 +316,7 @@ def user_generator(disk_engine,table='data_trim',sample_size=50,usr_ratio=80,mod
     while True:
         users = set()
         cnt_trans = 0
-        while cnt_trans<sample_size:
+        while cnt_trans<batch_size:
             
             if cnt<usr_ratio:
                 cnt_trans+=add_user(head,u_list,dataFrame_count,users)
@@ -347,15 +347,15 @@ def user_generator(disk_engine,table='data_trim',sample_size=50,usr_ratio=80,mod
         # print 'return list length:',len(users)
 #         print '# users expiriencing both', len(u_list)-len(users)
         yield users
-def eval_trans_generator(disk_engine,encoders,table='data_trim',sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
-    user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,sample_size=sample_size,table=table)
+def eval_trans_generator(disk_engine,encoders,table='data_trim',batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
+    user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table)
     print "Users generator"
     while True:
         users = next(user_gen)
         yield sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,mode='test',table=table,class_weight=class_weight)
 
-def eval_users_generator(disk_engine,encoders,table='data_trim',sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
-    user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,sample_size=sample_size,table=table,mode='test')
+def eval_users_generator(disk_engine,encoders,table='data_trim',batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
+    user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table,mode='test')
     print "Users generator"
     while True:
         users = next(user_gen)
@@ -363,8 +363,8 @@ def eval_users_generator(disk_engine,encoders,table='data_trim',sample_size=400,
 
 
 def data_generator(user_mode,trans_mode,disk_engine,encoders,table='data_trim',
-                   sample_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1,cutt_off_date='2014-05-11'):
-    user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,sample_size=sample_size,table=table,mode=user_mode,trans_mode=trans_mode)
+                   batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1,cutt_off_date='2014-05-11',epoch_size=None):
+    user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table,mode=user_mode,trans_mode=trans_mode)
     print "Users generator"
     last_date = get_last_date(cutt_off_date,table,disk_engine)
     print 'last_date calculated!'
