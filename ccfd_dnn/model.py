@@ -316,11 +316,12 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
     head = 0
     tail = len(u_list)-1
     u_list_all = u_list
+    batch_size_temp = batch_size
     while True:
         users = set()
         cnt_trans = 0
         if sub_sample != None:
-            assert sub_sample<len(u_list_all), 'sub_sample size select is {sub_sample}, but there are only {us} users'.format(sub_sample=sub_sample,us=len(u_list_all))
+            assert sub_sample<=len(u_list_all), 'sub_sample size select is {sub_sample}, but there are only {us} users'.format(sub_sample=sub_sample,us=len(u_list_all))
             u_list = np.random.choice(u_list_all, sub_sample,replace=False)
             print 'indeed they have been generated'
             ### reset tail value, to avoid outof bounds exception
@@ -328,8 +329,11 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
             #####if using subsample the batch should be no larger than the total number of sequences
             to_be_used = total_trans_batch(u_list,dataFrame_count)  
             print 'batch_size: {bs} : to_be_used {tbu}'.format(bs=batch_size,tbu=to_be_used)
-            if batch_size > to_be_used:
+            
+            if batch_size_temp > to_be_used:
                 batch_size = to_be_used
+            else:
+                batch_size = batch_size_temp
         while cnt_trans<batch_size:
             
             if cnt<usr_ratio:
@@ -352,8 +356,9 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
                     #if you have go through all users - return in order not to overfill epoch
                     #the same logic could have been achieved with break and without the yield line
                     print "##########ALL COVERED##########"
-                    yield users
-                    users = set()
+                    # yield users
+                    # users = set()
+                    break
                     
 #                     print len(users)
 #         print head

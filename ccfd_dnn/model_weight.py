@@ -37,10 +37,10 @@ if __name__ == "__main__":
    
 
     ####################################DATA SOURCE################################
-    # table = 'data_trim'
-    # rsl_file = './data/gs_results_trim.csv'
-    table = 'data_little'
-    rsl_file = './data/gs_results_little.csv'
+    table = 'data_trim'
+    rsl_file = './data/gs_results_trim.csv'
+    # table = 'data_little'
+    # rsl_file = './data/gs_results_little.csv'
 
     # table = 'data_more'
     # rsl_file = './data/gs_results_more.csv'
@@ -58,15 +58,17 @@ if __name__ == "__main__":
     nb_epoch = 30
     lbl_pad_val = 2
     pad_val = -1
+    dropout_W = 0.3
+    fraud_w = 400.
     class_weight = {0 : 1.,
-            1: 200.,
+            1: fraud_w,
             2: 0.}
 
 
 
 
 
-    hid_dims = [256]
+    hid_dims = [320]
     num_l = [3,4]
     lr_s = [2.5e-4]
     # lr_s = [1e-2,1e-3,1e-4]
@@ -76,7 +78,7 @@ if __name__ == "__main__":
                     # keras.optimizers.Adam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08),
                     # keras.optimizers.Nadam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08, schedule_decay=0.004)
                     ][x]
-    add_info = str(int(seq_len_param))+'_class_w_200'                
+    add_info = str(int(seq_len_param))+'_class_w_'+str(fraud_w)                
     
 
     encoders = populate_encoders_scale(table,disk_engine)
@@ -89,7 +91,7 @@ if __name__ == "__main__":
                 optimizer = opts(opt_id,lr)
                 for num_layers in num_l:
                     for rnn in ['gru']:
-                        title = 'Bidirectional_Class'+str(class_weight[1])+'_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_'+str(type(optimizer).__name__)+'_'+str(lr)
+                        title = 'Bidirectional_Class'+str(class_weight[1])+'_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_'+str(type(optimizer).__name__)+'_'+str(lr)+'_epochs_'+str(nb_epoch)+'_DO'+str(dropout_W)
                         print title
                         input_layer = Input(shape=(int(seq_len_param), 44),name='main_input')
                         mask = Masking(mask_value=0)(input_layer)
@@ -101,22 +103,22 @@ if __name__ == "__main__":
                                                     unroll=False,consume_less='gpu',
                                                     init='glorot_uniform', inner_init='orthogonal', activation='tanh',
                                             inner_activation='hard_sigmoid', W_regularizer=None, U_regularizer=None,
-                                            b_regularizer=None, dropout_W=0.0, dropout_U=0.0)(x)
+                                            b_regularizer=None, dropout_W=dropout_W, dropout_U=0.0)(x)
                                 prev_bck = GRU(hidden_dim,#input_length=50,
                                                     return_sequences=True,go_backwards=True,stateful=False,
                                                     unroll=False,consume_less='gpu',
                                                     init='glorot_uniform', inner_init='orthogonal', activation='tanh',
                                             inner_activation='hard_sigmoid', W_regularizer=None, U_regularizer=None,
-                                            b_regularizer=None, dropout_W=0.0, dropout_U=0.0)(x)
+                                            b_regularizer=None, dropout_W=dropout_W, dropout_U=0.0)(x)
                             else:
                                 prev_frw = LSTM(hidden_dim, return_sequences=True,go_backwards=False,stateful=False,
                                     init='glorot_uniform', inner_init='orthogonal', 
                                     forget_bias_init='one', activation='tanh', inner_activation='hard_sigmoid',
-                                    W_regularizer=None, U_regularizer=None, b_regularizer=None, dropout_W=0.0, dropout_U=0.0)(x)
+                                    W_regularizer=None, U_regularizer=None, b_regularizer=None, dropout_W=dropout_W, dropout_U=0.0)(x)
                                 prev_bck = LSTM(hidden_dim, return_sequences=True,go_backwards=True,stateful=False,
                                     init='glorot_uniform', inner_init='orthogonal', 
                                     forget_bias_init='one', activation='tanh', inner_activation='hard_sigmoid',
-                                    W_regularizer=None, U_regularizer=None, b_regularizer=None, dropout_W=0.0, dropout_U=0.0)(x)
+                                    W_regularizer=None, U_regularizer=None, b_regularizer=None, dropout_W=dropout_W, dropout_U=0.0)(x)
                             x = merge([prev_frw, prev_bck], mode='concat')
                         output_layer = TimeDistributed(Dense(3,activation='softmax'))(x)
                         model = Model(input=[input_layer],output=[output_layer])

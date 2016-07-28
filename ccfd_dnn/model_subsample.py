@@ -37,10 +37,10 @@ if __name__ == "__main__":
    
 
     ####################################DATA SOURCE################################
-    table = 'data_trim'
-    rsl_file = './data/gs_results_trim.csv'
-    # table = 'data_little'
-    # rsl_file = './data/gs_results_little.csv'
+    # table = 'data_trim'
+    # rsl_file = './data/gs_results_trim.csv'
+    table = 'data_little'
+    rsl_file = './data/gs_results_little.csv'
 
     # table = 'data_more'
     # rsl_file = './data/gs_results_more.csv'
@@ -48,10 +48,12 @@ if __name__ == "__main__":
 
     #######################Settings#############################################
     samples_per_epoch = trans_num_table(table,disk_engine,mode='train',trans_mode='train')
-    samples_per_epoch = 484
+    samples_per_epoch = 1879
     epoch_limit = samples_per_epoch
     print "SAMPLES per epoch:",samples_per_epoch
-    user_sample_size = 20
+    user_sample_size = 1232
+    # user_sample_size = 2000
+
     print "User sample size:",user_sample_size
     # samples_per_epoch = 1959
     # table = 'data_trim'
@@ -64,7 +66,7 @@ if __name__ == "__main__":
 
 
 
-    hid_dims = [256]
+    hid_dims = [256,320]
     num_l = [3,4]
     lr_s = [2.5e-4]
     # lr_s = [1e-2,1e-3,1e-4]
@@ -128,117 +130,117 @@ if __name__ == "__main__":
                                          sub_sample=user_sample_size,epoch_size=epoch_limit)
                                          # sub_sample=user_sample_size,epoch_size=samples_per_epoch)
                         history = model.fit_generator(data_gen, samples_per_epoch, nb_epoch, verbose=1, callbacks=[],validation_data=None, nb_val_samples=None, class_weight=None, max_q_size=10000)
-                        # py.sign_in('bottydim', 'o1kuyms9zv') 
+                        py.sign_in('bottydim', 'o1kuyms9zv') 
 
 
 
-                        # auc_list = []
-                        # print '#########################TRAIN STATS################'
-                        # user_mode = 'train'
-                        # trans_mode = 'train'
-                        # val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
-                        # print '# samples',val_samples
-                        # plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
+                        auc_list = []
+                        print '#########################TRAIN STATS################'
+                        user_mode = 'train'
+                        trans_mode = 'train'
+                        val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
+                        print '# samples',val_samples
+                        plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
-                        # data_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                        #                  batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
+                        data_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
+                                         batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
 
-                        # eval_list  = eval_auc_generator(model, data_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
-                        # auc_val = eval_list[0]
-                        # clc_report = eval_list[1]
-                        # acc = eval_list[2]
-                        # print "AUC:",auc_val 
-                        # print 'CLassification report'
-                        # print clc_report
-                        # print 'Accuracy'
-                        # print acc
-                        # auc_list.append(str(auc_val))
-                        # print '##################EVALUATION USERS#########################'
+                        eval_list  = eval_auc_generator(model, data_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
+                        auc_val = eval_list[0]
+                        clc_report = eval_list[1]
+                        acc = eval_list[2]
+                        print "AUC:",auc_val 
+                        print 'CLassification report'
+                        print clc_report
+                        print 'Accuracy'
+                        print acc
+                        auc_list.append(str(auc_val))
+                        print '##################EVALUATION USERS#########################'
 
-                        # user_mode = 'test'
-                        # trans_mode = 'train'
-                        # val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
-                        # print '# samples',val_samples
-                        # plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
+                        user_mode = 'test'
+                        trans_mode = 'train'
+                        val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
+                        print '# samples',val_samples
+                        plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
-                        # eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                        #                  batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
+                        eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
+                                         batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
 
-                        # eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
-                        # auc_val = eval_list[0]
-                        # clc_report = eval_list[1]
-                        # acc = eval_list[2]
-                        # print "AUC:",auc_val 
-                        # print 'CLassification report'
-                        # print clc_report
-                        # print 'Accuracy'
-                        # print acc
-                        # auc_list.append(str(auc_val))
-                        # print '#####################################################'
-                        # print '##################EVALUATION Transactions#########################'
+                        eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
+                        auc_val = eval_list[0]
+                        clc_report = eval_list[1]
+                        acc = eval_list[2]
+                        print "AUC:",auc_val 
+                        print 'CLassification report'
+                        print clc_report
+                        print 'Accuracy'
+                        print acc
+                        auc_list.append(str(auc_val))
+                        print '#####################################################'
+                        print '##################EVALUATION Transactions#########################'
 
-                        # user_mode = 'train'
-                        # trans_mode = 'test'
-                        # val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
-                        # print '# samples',val_samples
-                        # plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
+                        user_mode = 'train'
+                        trans_mode = 'test'
+                        val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
+                        print '# samples',val_samples
+                        plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
-                        # eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                        #                  batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
+                        eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
+                                         batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
 
-                        # eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
-                        # auc_val = eval_list[0]
-                        # clc_report = eval_list[1]
-                        # acc = eval_list[2]
-                        # print "AUC:",auc_val 
-                        # print 'CLassification report'
-                        # print clc_report
-                        # print 'Accuracy'
-                        # print acc
-                        # auc_list.append(str(auc_val))
-                        # print '#####################################################'
-                        # print '##################EVALUATION Pure#########################'
+                        eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
+                        auc_val = eval_list[0]
+                        clc_report = eval_list[1]
+                        acc = eval_list[2]
+                        print "AUC:",auc_val 
+                        print 'CLassification report'
+                        print clc_report
+                        print 'Accuracy'
+                        print acc
+                        auc_list.append(str(auc_val))
+                        print '#####################################################'
+                        print '##################EVALUATION Pure#########################'
 
-                        # user_mode = 'test'
-                        # trans_mode = 'test'
-                        # val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
-                        # print '# samples',val_samples
-                        # plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
+                        user_mode = 'test'
+                        trans_mode = 'test'
+                        val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
+                        print '# samples',val_samples
+                        plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
                         
-                        # eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                        #                  batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1)
+                        eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
+                                         batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1)
                         
-                        # eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
-                        # auc_val = eval_list[0]
-                        # clc_report = eval_list[1]
-                        # acc = eval_list[2]
-                        # print "AUC:",auc_val 
-                        # print 'CLassification report'
-                        # print clc_report
-                        # print 'Accuracy'
-                        # print acc
-                        # auc_list.append(str(auc_val))
-                        # print '#####################################################'
-                        # with io.open(rsl_file, 'a', encoding='utf-8') as file:
-                        #     auc_string = ','.join(auc_list)
-                        #     title_csv = title.replace('_',',')+','+str(history.history['acc'][-1])+','+str(history.history['loss'][-1])+','+str(auc_val)+','+str(acc)+','+auc_string+'\n'
-                        #     file.write(unicode(title_csv))
-                        #     print 'logged'
-                        # trim_point = -15
-                        # fig = {
-                        #     'data': [Scatter(
-                        #         x=history.epoch[trim_point:],
-                        #         y=history.history['loss'][trim_point:])],
-                        #     'layout': {'title': title}
-                        #     }
-                        # py.image.save_as(fig,filename='./figures/GS/'+table+'/'+title+'_'+table+'_'+add_info+".png")
-                        # # iplot(fig,filename='figures/'+title,image='png')
-                        # title = title.replace('Loss','Acc')
-                        # fig = {
-                        #     'data': [Scatter(
-                        #         x=history.epoch[trim_point:],
-                        #         y=history.history['acc'][trim_point:])],
-                        #     'layout': {'title': title}
-                        #     }
-                        # py.image.save_as(fig,filename='./figures/GS/'+table+'/'+title+'_'+table+'_'+add_info+".png")    
+                        eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
+                        auc_val = eval_list[0]
+                        clc_report = eval_list[1]
+                        acc = eval_list[2]
+                        print "AUC:",auc_val 
+                        print 'CLassification report'
+                        print clc_report
+                        print 'Accuracy'
+                        print acc
+                        auc_list.append(str(auc_val))
+                        print '#####################################################'
+                        with io.open(rsl_file, 'a', encoding='utf-8') as file:
+                            auc_string = ','.join(auc_list)
+                            title_csv = title.replace('_',',')+','+str(history.history['acc'][-1])+','+str(history.history['loss'][-1])+','+str(auc_val)+','+str(acc)+','+auc_string+'\n'
+                            file.write(unicode(title_csv))
+                            print 'logged'
+                        trim_point = -15
+                        fig = {
+                            'data': [Scatter(
+                                x=history.epoch[trim_point:],
+                                y=history.history['loss'][trim_point:])],
+                            'layout': {'title': title}
+                            }
+                        py.image.save_as(fig,filename='./figures/GS/'+table+'/'+title+'_'+table+'_'+add_info+".png")
+                        # iplot(fig,filename='figures/'+title,image='png')
+                        title = title.replace('Loss','Acc')
+                        fig = {
+                            'data': [Scatter(
+                                x=history.epoch[trim_point:],
+                                y=history.history['acc'][trim_point:])],
+                            'layout': {'title': title}
+                            }
+                        py.image.save_as(fig,filename='./figures/GS/'+table+'/'+title+'_'+table+'_'+add_info+".png")    
 
