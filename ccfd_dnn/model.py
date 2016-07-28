@@ -307,7 +307,7 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
         u_list =  user_ts
     if trans_mode == 'test':
         print 'used # sequences: value is inaccurate, please implement'
-        print 'used # sequences:',total_trans_batch(u_list,dataFrame_count)                         
+    print 'used # sequences:',total_trans_batch(u_list,dataFrame_count)                         
 #     display(dataFrame.acct_id)
     
     u_list = list(set(u_list))
@@ -322,8 +322,14 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
         if sub_sample != None:
             assert sub_sample<len(u_list_all), 'sub_sample size select is {sub_sample}, but there are only {us} users'.format(sub_sample=sub_sample,us=len(u_list_all))
             u_list = np.random.choice(u_list_all, sub_sample,replace=False)
+            print 'indeed they have been generated'
             ### reset tail value, to avoid outof bounds exception
             tail = len(u_list)-1
+            #####if using subsample the batch should be no larger than the total number of sequences
+            to_be_used = total_trans_batch(u_list,dataFrame_count)  
+            print 'batch_size: {bs} : to_be_used {tbu}'.format(bs=batch_size,tbu=to_be_used)
+            if batch_size > to_be_used:
+                batch_size = to_be_used
         while cnt_trans<batch_size:
             
             if cnt<usr_ratio:
@@ -382,6 +388,7 @@ def data_generator(user_mode,trans_mode,disk_engine,encoders,table,
     sample_w = []
     total_eg = 0
     while True:
+        print 'new users'
         users = next(user_gen)
         outs = sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,mode=trans_mode,table=table,class_weight=class_weight)
         
@@ -408,7 +415,7 @@ def data_generator(user_mode,trans_mode,disk_engine,encoders,table,
                     total_eg = 0
                     temp = []
                     for i in range(len(outs)):
-                        temp.append(outs[0][cutline:])
+                        temp.append(outs[i][cutline:])
                     outs =  tuple(temp) 
                 if remain >=0:
                     break

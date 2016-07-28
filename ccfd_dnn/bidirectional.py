@@ -54,16 +54,16 @@ if __name__ == "__main__":
 
 
     ####################################DATA SOURCE################################
-    table = 'data_trim'
-    rsl_file = './data/gs_results_trim.csv'
-    # table = 'data_little'
-    # rsl_file = './data/gs_results_little.csv'
+    # table = 'data_trim'
+    # rsl_file = './data/gs_results_trim.csv'
+    table = 'data_little'
+    rsl_file = './data/gs_results_little.csv'
     ################################################################################
 
 
     hid_dims = [256,512]
     num_l = [3,4]
-    lr_s = [2.5e-4,7e-5]
+    lr_s = [2.5e-4,1.75e-4]
     # lr_s = [5e-4,2.5e-4,7e-5]
     # lr_s = [1e-2,1e-3,1e-4]
     # lr_s = [1e-1,1e-2,1e-3]
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     # samples_per_epoch = 1959
     # table = 'data_trim'
     # samples_per_epoch = 485
-    nb_epoch = 1
+    nb_epoch = 30
     lbl_pad_val = 2
     pad_val = -1
 
