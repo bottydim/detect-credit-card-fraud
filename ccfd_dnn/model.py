@@ -1,3 +1,4 @@
+import progressbar
 import pandas as pd
 import matplotlib
 import numpy as np
@@ -58,8 +59,16 @@ def populate_encoders_scale(table,disk_engine):
         if tp == 'object':
             if name not in time_cols:
                 print name
-                df_col = pd.read_sql_query('select distinct {col_name} from {table}'.format(col_name=name,table=table),disk_engine)
-                encoders[name] = encode_column(np.array(df_col).ravel())
+                df_cols = pd.read_sql_query('select distinct {col_name} from {table}'.format(col_name=name,table=table),disk_engine,chunksize=100000)
+                arr = np.array(0)
+                progress = progressbar.ProgressBar(widgets=[progressbar.Bar('=', '[', ']'), ' ',
+                                            progressbar.Percentage(), ' ',
+                                            progressbar.ETA()]).start()
+                for c,df_col in enumerate(df_cols): 
+                    arr = np.vstack((arr,np.array(df_col)))
+                    progress.update(c+1)
+                progress.finish()
+                encoders[name] = encode_column(np.array(arr).ravel())
     return encoders
 
 def encode_df(df,encoders):
@@ -217,7 +226,7 @@ def sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,
         print 'labels shape',y_test_S.shape
         if class_weight != None:
             sample_w = generate_sample_w(y_test_S,class_weight)
-            return X_train_pad,y_train_S,sample_w
+            return X_test_S_pad,y_test_S,sample_w
         return X_test_S_pad,y_test_S
 
 
@@ -317,6 +326,7 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
     tail = len(u_list)-1
     u_list_all = u_list
     batch_size_temp = batch_size
+    to_be_used = batch_size
     while True:
         users = set()
         cnt_trans = 0
@@ -328,7 +338,7 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
             tail = len(u_list)-1
             #####if using subsample the batch should be no larger than the total number of sequences
             to_be_used = total_trans_batch(u_list,dataFrame_count)  
-            print 'batch_size: {bs} : to_be_used {tbu}'.format(bs=batch_size,tbu=to_be_used)
+            print 'batch_size: {bs} : to_be_used {tbu} : user_sub_sample {usr}'.format(bs=batch_size,tbu=to_be_used,usr=len(u_list))
             
             if batch_size_temp > to_be_used:
                 batch_size = to_be_used
@@ -366,14 +376,14 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
         # print 'return list length:',len(users)
 #         print '# users expiriencing both', len(u_list)-len(users)
         yield users
-def eval_trans_generator(disk_engine,encoders,table='data_trim',batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
+def eval_trans_generator(disk_engine,encoders,table='data_trim',batch_size=512,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
     user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table)
     print "Users generator"
     while True:
         users = next(user_gen)
         yield sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,mode='test',table=table,class_weight=class_weight)
 
-def eval_users_generator(disk_engine,encoders,table='data_trim',batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
+def eval_users_generator(disk_engine,encoders,table='data_trim',batch_size=512,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
     user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table,mode='test')
     print "Users generator"
     while True:
@@ -382,7 +392,7 @@ def eval_users_generator(disk_engine,encoders,table='data_trim',batch_size=400,u
 
 
 def data_generator(user_mode,trans_mode,disk_engine,encoders,table,
-                   batch_size=400,usr_ratio=80,class_weight=None,lbl_pad_val = 2,
+                   batch_size=512,usr_ratio=80,class_weight=None,lbl_pad_val = 2,
                    pad_val = -1,cutt_off_date='2014-05-11',sub_sample=None,epoch_size=None):
     user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table,mode=user_mode,trans_mode=trans_mode,sub_sample=sub_sample)
     print "Users generator"
