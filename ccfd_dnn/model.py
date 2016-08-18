@@ -326,10 +326,12 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
     tail = len(u_list)-1
     u_list_all = u_list
     batch_size_temp = batch_size
-    to_be_used = batch_size
+    to_be_used = total_trans_batch(u_list,dataFrame_count)  
+
     while True:
         users = set()
         cnt_trans = 0
+        total_trans = 0
         if sub_sample != None:
             assert sub_sample<=len(u_list_all), 'sub_sample size select is {sub_sample}, but there are only {us} users'.format(sub_sample=sub_sample,us=len(u_list_all))
             u_list = np.random.choice(u_list_all, sub_sample,replace=False)
@@ -344,38 +346,40 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
                 batch_size = to_be_used
             else:
                 batch_size = batch_size_temp
-        while cnt_trans<batch_size:
-            
-            if cnt<usr_ratio:
-                cnt_trans+=add_user(head,u_list,dataFrame_count,users)
-                cnt+=1
-                head+=1
+        while total_trans < to_be_used:        
+            while cnt_trans<batch_size:
+                
+                if cnt<usr_ratio:
+                    cnt_trans+=add_user(head,u_list,dataFrame_count,users)
+                    cnt+=1
+                    head+=1
 
-            else:
-                cnt_trans+=add_user(tail,u_list,dataFrame_count,users)
-                tail-=1
-                cnt=0
-#             print 'head',head
-#             print 'tail',tail
-#             print 'cnt_trans',cnt_trans
-            if head == tail+1:
-                    head = 0
-                    tail = len(u_list)-1
-                    cnt_trans = 0
-                    cnt = 0
-                    #if you have go through all users - return in order not to overfill epoch
-                    #the same logic could have been achieved with break and without the yield line
-                    print "##########ALL COVERED##########"
-                    # yield users
-                    # users = set()
-                    break
-                    
-#                     print len(users)
-#         print head
-#         print tail
-        # print 'return list length:',len(users)
-#         print '# users expiriencing both', len(u_list)-len(users)
-        yield users
+                else:
+                    cnt_trans+=add_user(tail,u_list,dataFrame_count,users)
+                    tail-=1
+                    cnt=0
+    #             print 'head',head
+    #             print 'tail',tail
+    #             print 'cnt_trans',cnt_trans
+                if head == tail+1:
+                        head = 0
+                        tail = len(u_list)-1
+                        cnt_trans = 0
+                        cnt = 0
+                        #if you have go through all users - return in order not to overfill epoch
+                        #the same logic could have been achieved with break and without the yield line
+                        print "##########ALL COVERED##########"
+                        # yield users
+                        # users = set()
+                        break
+                        
+    #                     print len(users)
+    #         print head
+    #         print tail
+            # print 'return list length:',len(users)
+    #         print '# users expiriencing both', len(u_list)-len(users)
+            total_trans+=batch_size
+            yield users
 def eval_trans_generator(disk_engine,encoders,table='data_trim',batch_size=512,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
     user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table)
     print "Users generator"

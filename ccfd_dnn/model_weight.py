@@ -97,7 +97,7 @@ if __name__ == "__main__":
                     optimizer = opts(opt_id,lr)
                     for num_layers in num_l:
                         for rnn in ['gru']:
-                            title = 'Bidirectional_Class'+str(class_weight[1])+'_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_'+str(type(optimizer).__name__)+'_'+str(lr)+'_epochs_'+str(nb_epoch)+'_DO'+str(dropout_W)
+                            title = 'Bidirectional_Class'+str(class_weight[1])+'_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_'+str(type(optimizer).__name__)+'_'+str(lr)+'_epochs_'+str(nb_epoch)+'_DO-'+str(dropout_W)
                             print title
                             input_layer = Input(shape=(int(seq_len_param), 44),name='main_input')
                             mask = Masking(mask_value=0)(input_layer)
@@ -150,17 +150,17 @@ if __name__ == "__main__":
                             early_Stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=patience, verbose=0, mode='auto')
 
                             save_path = './data/models/'+table+'/'
-                            checkpoint = keras.callbacks.ModelCheckpoint(save_path+title, monitor='val_loss', verbose=0, save_best_only=True, mode='auto')
+                            var_name = '.{epoch:02d}-{val_loss:.2f}.hdf5'
+                            checkpoint = keras.callbacks.ModelCheckpoint(save_path+title+var_name, monitor='val_loss', verbose=1, save_best_only=True, mode='auto')
 
                             root_url = 'http://localhost:9000'
                             remote_log = keras.callbacks.RemoteMonitor(root=root_url)
 
-                            callbacks = [early_Stop,checkpoint]
-                            callbacks = [checkpoint,remote_log]
+                            # callbacks = [early_Stop,checkpoint]
+                            callbacks = [early_Stop,checkpoint,remote_log]
                             history = model.fit_generator(data_gen, samples_per_epoch, nb_epoch, verbose=1, callbacks=callbacks,validation_data=validation_data, nb_val_samples=None, class_weight=None, max_q_size=10000)
+
                             py.sign_in('bottydim', 'o1kuyms9zv') 
-
-
 
                             auc_list = []
                             print '#########################TRAIN STATS################'
