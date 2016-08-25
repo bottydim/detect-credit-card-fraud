@@ -17,7 +17,7 @@ import psycopg2 as pg
 import cStringIO
 
 
-data_dir = './data/'
+data_dir = '/home/botty/Documents/CCFD/data/'
 evt_name = 'Featurespace_events_output.csv'
 auth_name = 'Featurespace_auths_output.csv'
 db_name = 'c1_agg.db'
@@ -84,21 +84,19 @@ CREATE TABLE {table}
 );'''
 
 
-table = 'auth'
+table = 'data_trim'
 cursor.execute(drop_qry.format(table=table))
 connection.commit()
 cursor.execute(create_qry.format(table=table))
 connection.commit()
 print 'table created'
-df = pd.read_sql_query('select * from {table} limit 5'.format(table=table),engine)
-col_names = df.columns.values
-print col_names
+
 
 
 
 
 start = dt.datetime.now()
-chunksize = 400000
+chunksize = 10000
 j = 0
 index_start = 1
 ###################data source
@@ -171,12 +169,17 @@ for df in pd.read_csv(file_loc, chunksize=chunksize, iterator=True,encoding='ISO
     
     print '{} seconds: inserted {} rows'.format((dt.datetime.now() - t_mid).seconds, j*chunksize)
     index_start = df.index[-1] + 1
+    break
 
-
-
+df = pd.read_sql_query('select * from {table} limit 5'.format(table=table),engine)
+col_names = df.columns.values
+print col_names
 for c,name in enumerate(col_names):
     if name =='index':
         continue
-    cursor.execute('''CREATE INDEX id_auth_{col} 
+    t_mid = dt.datetime.now()
+    cursor.execute('''CREATE INDEX id_{table}_{col} 
                 ON {table} ({col})'''.format(table=table,col=name))
+    connection.commit()
+    print '{} index created in {}'.format(name,(dt.datetime.now() - t_mid))
 print 'idxs created!'

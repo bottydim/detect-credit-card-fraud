@@ -1,3 +1,5 @@
+import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 import pandas as pd
 import matplotlib
 import numpy as np
@@ -11,7 +13,7 @@ import pandas as pd
 from sqlalchemy import create_engine # database connection
 import datetime as dt
 import io
-
+import logging
 import plotly.plotly as py # interactive graphing
 from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
 from plotly.graph_objs import Bar, Scatter, Marker, Layout 
@@ -20,51 +22,86 @@ np.random.seed(1337)
 import theano
 import keras
 from keras.preprocessing.sequence import pad_sequences
-from keras.models import Model
+from keras.models import Model,model_from_yaml
 from keras.layers import Input, Dense, GRU, LSTM, TimeDistributed, Masking,merge
 from model import *
 
-
+import sys
 if __name__ == "__main__":
+
+
+
+
+    ####################################DATA SOURCE################################
+    # table = 'data_trim'
+    # rsl_file = './data/gs_results_trim.csv'
+    # rsl_file = './data/psql_data_trim.csv'
+
+    table = 'data_little'
+    # rsl_file = './data/gs_results_little.csv'
+    
+    # table = 'data_more'
+    # rsl_file = './data/gs_results_more.csv'
+    # table = 'auth'
+    # rsl_file = './data/auth.csv'
+
+    events_tbl = 'event'
+    events_tbl = None
+    rsl_file = './data/psql_{table}.csv'.format(table=table)
+    ################################################################################
+
+
+
+
     print "Commencing..."
     data_dir = './data/'
     evt_name = 'Featurespace_events_output.csv'
     auth_name = 'Featurespace_auths_output.csv'
     db_name = 'c1_agg.db'
     
-    disk_engine = create_engine('sqlite:///'+data_dir+db_name,convert_unicode=True)
-    disk_engine.raw_connection().connection.text_factory = str
-   
 
-    ####################################DATA SOURCE################################
-    # table = 'data_trim'
-    # rsl_file = './data/gs_results_trim.csv'
-    table = 'data_little'
-    rsl_file = './data/gs_results_little.csv'
+    address = "postgresql+pg8000://script@localhost:5432/ccfd"
+    # disk_engine = create_engine('sqlite:///'+data_dir+db_name,convert_unicode=True)
+    # disk_engine.raw_connection().connection.text_factory = str
+    disk_engine = create_engine(address)
 
-    # table = 'data_more'
-    # rsl_file = './data/gs_results_more.csv'
-    # table = 'auth'
-    # rsl_file = './data/auth.csv'
-    ################################################################################
+
 
     #######################Settings#############################################
     samples_per_epoch = trans_num_table(table,disk_engine,mode='train',trans_mode='train')
-    epoch_limit = 1000
-    samples_per_epoch = epoch_limit
-    print "SAMPLES per epoch:",samples_per_epoch
-    user_sample_size = 800
-    print "User sample size:",user_sample_size
+    # epoch_limit = 10000
+    # samples_per_epoch = epoch_limit
+    # user_sample_size = 8000
+
+
+    epoch_limit = samples_per_epoch
+    user_sample_size = None
+
+    nb_epoch = 10
+    fraud_w = 400.
+    
+    ##########ENCODERS CONF
+    tbl_src = 'auth'
+    # tbl_src = table
+    tbl_evnt = 'event'
+    ##################################
+   
     batch_size = 512
+
+    print "SAMPLES per epoch:",samples_per_epoch
+    print "User sample size:",user_sample_size
     # samples_per_epoch = 1959
     # table = 'data_trim'
     # samples_per_epoch = 485
-    nb_epoch = 10
+    
+
+
+
     lbl_pad_val = 2
     pad_val = -1
     dropout_W_list = [0.3]
     # dropout_W_list = [0.15,0.3,0.4,0.8]
-    fraud_w = 400.
+    
     class_weight = {0 : 1.,
             1: fraud_w,
             2: 0.}
@@ -86,7 +123,18 @@ if __name__ == "__main__":
     add_info = str(int(seq_len_param))+'_class_w_'+str(fraud_w)                
     
 
-    encoders = populate_encoders_scale(table,disk_engine)
+    print 'Populating encoders'
+
+    path_encoders ='./data/encoders/{tbl_src}+{tbl_evnt}'.format(tbl_src=tbl_src,tbl_evnt=tbl_evnt) 
+    if os.path.exists(path_encoders):
+        encoders = load_encoders(path_encoders)
+    else:
+        encoders = populate_encoders_scale(tbl_src,disk_engine,tbl_evnt)
+        with open(path_encoders, 'wb') as output:
+            pickle.dump(encoders, output, pickle.HIGHEST_PROTOCOL)
+            print 'ENCODERS SAVED to {path}!'.format(path=path_encoders)
+
+    # sys.exit()
     gru_dict = {}
     lstm_dict = {}
     for dropout_W in dropout_W_list:
@@ -97,6 +145,8 @@ if __name__ == "__main__":
                     optimizer = opts(opt_id,lr)
                     for num_layers in num_l:
                         for rnn in ['gru']:
+
+                            short_title = 'bi_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_DO-'+str(dropout_W)
                             title = 'Bidirectional_Class'+str(class_weight[1])+'_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_'+str(type(optimizer).__name__)+'_'+str(lr)+'_epochs_'+str(nb_epoch)+'_DO-'+str(dropout_W)
                             print title
                             input_layer = Input(shape=(int(seq_len_param), 44),name='main_input')
@@ -132,25 +182,35 @@ if __name__ == "__main__":
                                             loss='sparse_categorical_crossentropy',
                                             metrics=['accuracy'],
                                             sample_weight_mode="temporal")
+
+                            ########save architecture ######
+                            arch_dir = './data/models/archs/'+short_title+'.yml'
+                            yaml_string = model.to_yaml()
+                            with open(arch_dir, 'wb') as output:
+                                pickle.dump(yaml_string, output, pickle.HIGHEST_PROTOCOL)
+                                print 'model saved!'
+                            ##############        
+
                             user_mode = 'train'
                             trans_mode = 'train'
                             data_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
                                              batch_size=batch_size,usr_ratio=80,class_weight=class_weight,lbl_pad_val = 2, pad_val = -1,
-                                             sub_sample=user_sample_size,epoch_size=epoch_limit)
+                                             sub_sample=user_sample_size,epoch_size=epoch_limit,events_tbl=events_tbl)
                                              # sub_sample=user_sample_size,epoch_size=samples_per_epoch)
                             ########validation data
+                            print 'Generating Validation set!'
                             user_mode = 'test'
                             trans_mode = 'test'
                             val_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
                                              batch_size=batch_size,usr_ratio=80,class_weight=class_weight,lbl_pad_val = 2, pad_val = -1,
-                                             sub_sample=None,epoch_size=None)
+                                             sub_sample=None,epoch_size=None,events_tbl=events_tbl)
                             validation_data = next(val_gen)
                             ###############CALLBACKS
                             patience = 30
                             early_Stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=patience, verbose=0, mode='auto')
 
                             save_path = './data/models/'+table+'/'
-                            var_name = '.{epoch:02d}-{val_loss:.2f}.hdf5'
+                            var_name = '.{epoch:02d}-{val_loss:.5f}.hdf5'
                             checkpoint = keras.callbacks.ModelCheckpoint(save_path+title+var_name, monitor='val_loss', verbose=1, save_best_only=True, mode='auto')
 
                             root_url = 'http://localhost:9000'
@@ -171,7 +231,7 @@ if __name__ == "__main__":
                             plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
                             data_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                             batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
+                                             batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1,events_tbl=events_tbl) 
 
                             eval_list  = eval_auc_generator(model, data_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
                             auc_val = eval_list[0]
@@ -192,7 +252,7 @@ if __name__ == "__main__":
                             plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
                             eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                             batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
+                                             batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1,events_tbl=events_tbl) 
 
                             eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
                             auc_val = eval_list[0]
@@ -214,7 +274,7 @@ if __name__ == "__main__":
                             plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
                             eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                             batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1) 
+                                             batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1,events_tbl=events_tbl) 
 
                             eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
                             auc_val = eval_list[0]
@@ -236,7 +296,7 @@ if __name__ == "__main__":
                             plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
                             
                             eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                             batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1)
+                                             batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1,events_tbl=events_tbl)
                             
                             eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
                             auc_val = eval_list[0]
@@ -271,4 +331,5 @@ if __name__ == "__main__":
                                 'layout': {'title': title}
                                 }
                             py.image.save_as(fig,filename='./figures/GS/'+table+'/'+title+'_'+table+'_'+add_info+".png")    
+
 

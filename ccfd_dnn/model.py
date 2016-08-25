@@ -12,8 +12,9 @@ import plotly.tools as tls
 import pandas as pd
 from sqlalchemy import create_engine # database connection
 import datetime as dt
+import time
 import io
-
+import cPickle as pickle
 import plotly.plotly as py # interactive graphing
 from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
 from plotly.graph_objs import Bar, Scatter, Marker, Layout, Figure
@@ -22,17 +23,63 @@ np.random.seed(1337)
 import theano
 import keras
 from keras.preprocessing.sequence import pad_sequences
-from keras.models import Model
+from keras.models import Model,model_from_yaml
 from keras.layers import Input, Dense, GRU, LSTM, TimeDistributed, Masking
 from keras.engine.training import *
 from IPython.display import display
 
-time_cols = ['AUTHZN_RQST_PROC_TM','PREV_ADR_CHNG_DT','PREV_PMT_DT','PREV_CARD_RQST_DT','FRD_IND_SWT_DT']
+
+class ModelOperator(object):
+
+    def __init__(self, model, table, disk_engine,**kwargs):
+        self.disk_engine = disk_engine
+        self.model = model
+        self.table = table
+        self.auc_list = []
+        self.encoders = load_encoders()
+        if 'events_tbl' in kwargs:
+            self.events_tbl = kwargs['events_tbl']
+        else:
+            self.events_tbl = None
+
+def load_object(path):
+    with open(path, 'rb') as data:
+        obj = pickle.load(data)
+        return obj
+def load_encoders(path_encoders=None):
+    if path_encoders == None:
+        tbl_src = 'auth'
+        tbl_evnt = 'event'
+        path_encoders ='./data/encoders/{tbl_src}+{tbl_evnt}'.format(tbl_src=tbl_src,tbl_evnt=tbl_evnt)    
+    encoders = load_object(path_encoders)
+    print 'encoders LOADED!'
+    return encoders
+
+def load_model(arch_path,w_path=None):
+
+    yaml_string = load_object(arch_path)
+    print 'Model LOADED!' 
+    model = model_from_yaml(yaml_string)
+    lr= 2.5e-4
+    optimizer = keras.optimizers.RMSprop(lr=lr, rho=0.9, epsilon=1e-08)
+    model.compile(optimizer=optimizer,
+                    loss='sparse_categorical_crossentropy',
+                    metrics=['accuracy'],
+                    sample_weight_mode="temporal")
+    if w_path != None:
+        model.load_weights(w_path)
+
+    return model
+
+time_cols = ['authzn_rqst_proc_tm','PREV_ADR_CHNG_DT','PREV_PMT_DT','PREV_CARD_RQST_DT','frd_ind_swt_dt']
+time_cols = [x.lower() for x in time_cols]
 seq_len_param = 60.0
 def encode_column(df_col):
-    print df_col.shape
+    print 'Total incoming types:',df_col.shape
     le = preprocessing.LabelEncoder()
     le.fit(df_col)
+    print "Produced classes"
+    print '#unique:', len(le.classes_)
     return le
 
 def populate_encoders(table,disk_engine):
@@ -47,33 +94,44 @@ def populate_encoders(table,disk_engine):
                 encoders[r] = encode_column(df[r])
     return encoders
 
-def populate_encoders_scale(table,disk_engine):
+def populate_encoders_scale(table,disk_engine,events_tbl=None):
     df = pd.read_sql_query('select * from {table} limit 5'.format(table=table),disk_engine)
     col_names = df.columns.values
     encoders = {}
-    time_cols = ['AUTHZN_RQST_PROC_TM','PREV_ADR_CHNG_DT','PREV_PMT_DT','PREV_CARD_RQST_DT','FRD_IND_SWT_DT']
+    # time_cols = ['AUTHZN_RQST_PROC_TM','PREV_ADR_CHNG_DT','PREV_PMT_DT','PREV_CARD_RQST_DT','frd_ind_swt_dt']
     for c,name in enumerate(col_names):
         tp = df.dtypes[c]
-    #     print tp
+        # print tp
 
         if tp == 'object':
+            # print 'ORIGINAL NAME:',name
             if name not in time_cols:
                 print name
                 df_cols = pd.read_sql_query('select distinct {col_name} from {table}'.format(col_name=name,table=table),disk_engine,chunksize=100000)
-                arr = np.array(0)
+                arr = []
                 progress = progressbar.ProgressBar(widgets=[progressbar.Bar('=', '[', ']'), ' ',
                                             progressbar.Percentage(), ' ',
                                             progressbar.ETA()]).start()
                 for c,df_col in enumerate(df_cols): 
-                    arr = np.vstack((arr,np.array(df_col)))
+                    # arr = np.vstack((arr,np.array(df_col)))
+                    arr.extend(np.array(df_col))
                     progress.update(c+1)
+                if events_tbl != None:
+                    df_cols = pd.read_sql_query('select distinct {col_name} from {table}'.format(col_name=name,table=events_tbl),disk_engine,chunksize=100000)
+                    for c,df_col in enumerate(df_cols): 
+                        arr.extend(np.array(df_col))
+                        progress.update(c+1)
                 progress.finish()
+                arr = np.array(arr)
                 encoders[name] = encode_column(np.array(arr).ravel())
     return encoders
+
+
 
 def encode_df(df,encoders):
     for col in encoders.keys():
         try: 
+
             df[col] = encoders[col].transform(df[col])
         except:
             print 'EXCEPTION'
@@ -85,35 +143,52 @@ def encode_df(df,encoders):
 
 def get_user_info(user,table,disk_engine):
     if user == '.':
-        user = '"."'
-    df_u = pd.read_sql_query('select * from {table} where acct_id = {user}'.format(table=table,user=user),disk_engine)
+        user = "'.'"
+    df_u = pd.read_sql_query('select * from {table} where acct_id = {user}::text'.format(table=table,user=user),disk_engine)
     return df_u
 
 def get_last_date(cutt_off_date,table,disk_engine):
-    query = ['select AUTHZN_RQST_PROC_TM '
-    'from {table} '
-    'where FRD_IND_SWT_DT >=' 
-         '"',
-    cutt_off_date,
-         '" '
-    'order by AUTHZN_RQST_PROC_TM limit 1 '
-    ]
-    query = ''.join(query)
-    query = query.format(table=table)
+    query = '''select authzn_rqst_proc_tm from {table} where frd_ind_swt_dt >='{cutt_off_date}' order by authzn_rqst_proc_tm limit 1'''
+    
+    # query = ''.join(query)
+    query = query.format(table=table,cutt_off_date=cutt_off_date)
     dataFrame = pd.read_sql_query(query
                        .format(table=table), disk_engine)
-    print pd.to_numeric(pd.to_datetime(dataFrame['AUTHZN_RQST_PROC_TM']))
-    return pd.to_numeric(pd.to_datetime(dataFrame['AUTHZN_RQST_PROC_TM']))[0]
+    print 'last date'
+    print pd.to_numeric(pd.to_datetime(dataFrame['authzn_rqst_proc_tm']))
+    return pd.to_numeric(pd.to_datetime(dataFrame['authzn_rqst_proc_tm']))[0]
 
 def get_col_id(col,df):
     col_list = list(df.columns.values)
     col_list.remove('index')
     col_list.index(col)
     
-def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_date):
+def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_date,events_tbl=None):
+    t0 = time.time()
     df_u = get_user_info(user,table,disk_engine)
+    t1 = time.time()
+    print 'time user info:', str(t1-t0)  
+
+    if events_tbl:
+        df_u_events = get_user_info(user,events_tbl,disk_engine)
+        df_u = pd.concat([df_u,df_u_events])
+        ####possible issues with index 
+        print df_u
+        # sys.exit()
+    '''
+    serious bug ordering has to occur before time shift! otherwise the shift occurs in random fashion
+    '''
+    t0 = time.time()
+    df_u = df_u.sort_values('authzn_rqst_proc_tm',ascending=True)
+    t1 = time.time()
+    print 'time sort:', str(t1-t0)  
+#     display(df_u[df_u['frd_ind_swt_dt'].isnull()])
+    df_u = df_u.drop('index', axis=1)
+    #columns which are not available at this time step
     unav_cols = ['AUTHZN_APPRL_CD','TSYS_DCLN_REAS_CD','AUTHZN_RESPNS_CD','AUTHZN_APPRD_AMT',]
+    unav_cols = [x.lower() for x in unav_cols]
     nan_rpl = ['AUTHZN_APPRL_CD',]
+    nan_rpl = [x.lower() for x in nan_rpl]
     for col in unav_cols:
         df_u[col] = df_u[col].shift(1)
         loc = list(df_u.columns.values).index(col)
@@ -123,22 +198,24 @@ def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_d
             df_u.iloc[0,loc] = pad_val
 #     print df_u.count()
 #     display(df_u.head())
-#     display(df_u.sort_values('AUTHZN_RQST_PROC_TM',ascending=True))
+#     display(df_u.sort_values('authzn_rqst_proc_tm',ascending=True))
+    t0 = time.time()
     encode_df(df_u,encoders)
+    t1 = time.time()
+    print 'time encoding:', str(t1-t0)  
 #     print df_u.count()
 #     display(df_u.head())
-#     display(df_u.sort_values('AUTHZN_RQST_PROC_TM',ascending=True))
-    df_u = df_u.sort_values('AUTHZN_RQST_PROC_TM',ascending=True)
-#     display(df_u[df_u['FRD_IND_SWT_DT'].isnull()])
-    df_u = df_u.drop('index', axis=1)
-#     display(df_u[df_u['FRD_IND_SWT_DT'] < pd.to_numeric(pd.Series(pd.to_datetime(cuttoff_date)))[0]].head(8))
+#     display(df_u.sort_values('authzn_rqst_proc_tm',ascending=True))
+
+#     display(df_u[df_u['frd_ind_swt_dt'] < pd.to_numeric(pd.Series(pd.to_datetime(cuttoff_date)))[0]].head(8))
 ### This is the last date, before which transaction will be used for trainning. 
 ### It coresponds to the date when the last knwon fraudulent transaction was confirmed
+    t0 = time.time()
     last_date_num = last_date
 
-    df_train = df_u[df_u['AUTHZN_RQST_PROC_TM'] < last_date_num]
+    df_train = df_u[df_u['authzn_rqst_proc_tm'] < last_date_num]
     # display(df_train.head())
-    df_test = df_u[df_u['AUTHZN_RQST_PROC_TM'] >= last_date_num]
+    df_test = df_u[df_u['authzn_rqst_proc_tm'] >= last_date_num]
     # display(df_test.head())
     train = np.array(df_train)
     test = np.array(df_test)
@@ -150,7 +227,8 @@ def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_d
 #     display(df_train)
 #     display(df_test)
 
-        
+    t1 = time.time()
+    print 'time remaining:', str(t1-t0)      
 
     # print 'test shape in sequencer',test.shape
     return train[:,0:-2],test[:,0:-2],train[:,-2],test[:,-2]
@@ -172,20 +250,27 @@ def generate_sample_w(y_true,class_weight):
         for j in range(shps[1]):
             sample_w[i].append(class_weight[y_true[i,j,0]])
     return np.asarray(sample_w)
-def sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,mode='train',table='data_trim',class_weight=None,):
+def sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,mode='train',table='data_trim',class_weight=None,events_tbl=None):
     X_train_S = []
     X_test_S = []
     y_train_S =[]
     y_test_S = []
     print "Number of users:",len(users)
+    progress = progressbar.ProgressBar(widgets=[progressbar.Bar('=', '[', ']'), ' ',
+                            progressbar.Percentage(), ' ',
+                            progressbar.ETA()]).start()
+    t0 = time.time()
+    c = 0
     for user in users:
     #     if user != '337018623': 
     #         continue
-        X_train,X_test,y_train,y_test = generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_date)
+        X_train,X_test,y_train,y_test = generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_date,events_tbl)
         if type(X_train) != list:
             assert X_train.shape[0] == y_train.shape[0], 'Sequence mismatch for user {user}: X_Train.shape {x_shape}'\
                     ' : y_train.shape {y_shape} \n'.format(user=user,x_shape=X_train.shape,y_shape=y_train.shape)
-
+        c+=1
+        progress.update(c)
+       
         # print 'shapes:',X_train.shape[0],":",y_train.shape[0]
         # if X_test != []:
         #     print 'shape in generator',X_test.shape
@@ -195,13 +280,17 @@ def sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,
         y_test_S.append(y_test)
     #     break
 
-
+    t1 = time.time()
+    progress.finish()
+    print 'sequence acquired in:', str(t1-t0)   
     X_train_S = filter(lambda a: len(a) != 0, X_train_S)
     y_train_S = filter(lambda a: len(a) != 0, y_train_S)
     X_test_S = filter(lambda a: len(a) != 0, X_test_S)
     y_test_S = filter(lambda a: len(a) != 0, y_test_S)
 
-
+    # ds_list = [X_train_S,y_train_S,X_test_S,y_test_S]
+    # for x in ds_list:
+    #     if len(x) ==
 
     if mode =='train':
         # chuncked = chunck_seq(X_train_S)
@@ -233,14 +322,14 @@ def sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,
 def get_count_table(table,disk_engine,cutt_off_date,trans_mode):
     query = ['select acct_id,count(*) '
         'as num_trans from {table} '
-        'where AUTHZN_RQST_PROC_TM <= '
-        '(select AUTHZN_RQST_PROC_TM '
+        'where authzn_rqst_proc_tm <= '
+        '(select authzn_rqst_proc_tm '
         'from {table} '
-        'where FRD_IND_SWT_DT >=' 
-             '"',
+        'where frd_ind_swt_dt >=' 
+             ''' ' ''',
         cutt_off_date,
-             '" '
-        'order by AUTHZN_RQST_PROC_TM limit 1) '
+             ''' ' '''
+        'order by authzn_rqst_proc_tm limit 1) '
         'group by acct_id order by num_trans']
     query = ''.join(query)
     query = query.format(table=table)
@@ -326,13 +415,14 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
     tail = len(u_list)-1
     u_list_all = u_list
     batch_size_temp = batch_size
-    to_be_used = total_trans_batch(u_list,dataFrame_count)  
+     
 
     while True:
         users = set()
         cnt_trans = 0
         total_trans = 0
         if sub_sample != None:
+            print 'SUBSAMPLING'
             assert sub_sample<=len(u_list_all), 'sub_sample size select is {sub_sample}, but there are only {us} users'.format(sub_sample=sub_sample,us=len(u_list_all))
             u_list = np.random.choice(u_list_all, sub_sample,replace=False)
             print 'indeed they have been generated'
@@ -346,7 +436,8 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
                 batch_size = to_be_used
             else:
                 batch_size = batch_size_temp
-        while total_trans < to_be_used:        
+        #cover all users before subsampling again! 
+        while head != tail+1:        
             while cnt_trans<batch_size:
                 
                 if cnt<usr_ratio:
@@ -378,7 +469,11 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
     #         print tail
             # print 'return list length:',len(users)
     #         print '# users expiriencing both', len(u_list)-len(users)
-            total_trans+=batch_size
+
+###############
+            #sOtherwise there is an infinite loop with the same users all the time - head and tail cannot be changed! 
+            ####
+            cnt_trans = 0
             yield users
 def eval_trans_generator(disk_engine,encoders,table='data_trim',batch_size=512,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
     user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table)
@@ -397,7 +492,7 @@ def eval_users_generator(disk_engine,encoders,table='data_trim',batch_size=512,u
 
 def data_generator(user_mode,trans_mode,disk_engine,encoders,table,
                    batch_size=512,usr_ratio=80,class_weight=None,lbl_pad_val = 2,
-                   pad_val = -1,cutt_off_date='2014-05-11',sub_sample=None,epoch_size=None):
+                   pad_val = -1,cutt_off_date='2014-05-11',sub_sample=None,epoch_size=None,events_tbl=None):
     user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table,mode=user_mode,trans_mode=trans_mode,sub_sample=sub_sample)
     print "Users generator"
     last_date = get_last_date(cutt_off_date,table,disk_engine)
@@ -409,7 +504,7 @@ def data_generator(user_mode,trans_mode,disk_engine,encoders,table,
     while True:
         print 'new users'
         users = next(user_gen)
-        outs = sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,mode=trans_mode,table=table,class_weight=class_weight)
+        outs = sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,mode=trans_mode,table=table,class_weight=class_weight,events_tbl=events_tbl)
         
         if not(epoch_size == None):
             while True:
@@ -540,6 +635,10 @@ def eval_auc_generator(model, generator, val_samples, max_q_size=10000,plt_filen
     #########Need to determine treshold 
     all_y_hat[np.where(all_y_hat>=cutt_off_tr)] = 1
     all_y_hat[np.where(all_y_hat<cutt_off_tr)]  = 0
+    # print '############hat#####################'
+    # print all_y_hat
+    # print '#############y_r####################'
+    # print all_y_r
     clc_report = classification_report(all_y_r, all_y_hat, target_names=target_names,digits=7)
     ############Accuracy
     acc = accuracy_score(all_y_r,all_y_hat)

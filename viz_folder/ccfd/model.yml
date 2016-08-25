@@ -1,0 +1,24 @@
+#this has to be automated
+name: Credit Card Fraud Detection
+description: CCFD sample visualization model
+
+files: 
+	states: ccfd_states.hdf5
+	word_ids: ccfd_xs.hdf5 #this has to be changed to Xs
+ 	words: ccfd_xs.dict #this will probably be deprecated
+
+word_sequences: #has to be abstracted
+	file: ccfd_xs  #very redundant, may be the whole section has to be erased
+	path: seq_ids #???? path to table in hdf5
+	dict_file: ccfd_xs
+
+states: #defines which states to examine
+	file: ccfd_states
+	types: [
+  # type={state, output}, layer=[1..x], path = HDF5 path
+    {type: state, layer: 1, path: states1,transform: none}, 
+    {type: state, layer: 2, path: states2,transform: none},
+    {type: output, layer: 2, path: output2,transform: none}
+  ]
+	
+
