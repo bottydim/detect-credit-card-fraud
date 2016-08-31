@@ -24,6 +24,10 @@ service postgresql restart
 
 free -m
 
-THEANO_FLAGS=floatX=float32,device=gpu,cuda.root=/usr/local/cuda-7.5/ python ./ccfd_dnn/model_weight.py > ./results/test-512batch.out
+THEANO_FLAGS=mode=FAST_RUN,floatX=float32,device=gpu,cuda.root=/usr/local/cuda-7.5/ python ./ccfd_dnn/model_weight.py > ./results/data_little_enc.out
 
 nvidia-smi
+
+#return all rows containing a null
+
+select * from data_little_enc where not(data_little_enc is not null)limit 20;

@@ -84,8 +84,8 @@ CREATE TABLE {table}
   FRD_IND_SWT_DT bigint
 );'''
 
-
-table = 'auth_enc'
+# table = 'auth_enc'
+table = 'data_little_enc'
 cursor.execute(drop_qry.format(table=table))
 connection.commit()
 cursor.execute(create_qry.format(table=table))
@@ -124,6 +124,13 @@ print encoders[col_id].classes_
 # print np.nan in encoders['mrch_pstl_cd'].classes_
 # encoders[col_id].classes_ = [x.encode('utf-8') if x !=None else None for x in encoders[col_id].classes_]
 encoders[col_id].classes_ = [str(x).replace('"','') if x !=None else None for x in encoders[col_id].classes_]
+
+col_id = 'mrch_id'
+print encoders[col_id].classes_
+# print np.nan in encoders['mrch_pstl_cd'].classes_
+encoders[col_id].classes_ = [x.encode('utf-8') if x !=None else None for x in encoders[col_id].classes_]
+encoders[col_id].classes_ = [str(x).replace('"','') if x !=None else None for x in encoders[col_id].classes_]
+
 
 
 col_id = 'mrch_city_nm'
@@ -182,6 +189,10 @@ for df in pd.read_csv(file_loc, chunksize=chunksize, iterator=True,encoding='ISO
     df['mrch_nm'.upper()] = df['mrch_nm'.upper()].replace({'\"':''},regex=True)
 
     # df['mrch_nm'.upper()] = df['mrch_nm'.upper()].replace({'\"':''},regex=True)
+
+    col_id = 'mrch_id'
+    df[col_id.upper()] = df[col_id.upper()].str.encode('utf-8')
+    df[col_id.upper()] = df[col_id.upper()].replace({'\"':''},regex=True)    
 
     col_id = 'trmnl_id'
     df[col_id.upper()] = df[col_id.upper()].str.encode('utf-8')
@@ -253,7 +264,7 @@ for df in pd.read_csv(file_loc, chunksize=chunksize, iterator=True,encoding='ISO
                 'card_vfcn2_respns_cd':{na_val:None},
                 'mrch_pstl_cd':{na_val:None},
                 'trmnl_id':{na_val:None},
-
+                # 'cavv_cd':{'nan':encoders['cavv_cd'].transform(None),na_val:encoders['cavv_cd'].transform(None)},
                 # 'mrch_pstl_cd':{'':None},
                 # 'mrch_pstl_cd':{'[]':None},
                 # 'mrch_pstl_cd':{'[0]':None},
@@ -311,7 +322,7 @@ for df in pd.read_csv(file_loc, chunksize=chunksize, iterator=True,encoding='ISO
     
     print '{} seconds: inserted {} rows'.format((dt.datetime.now() - t_mid).seconds, j*chunksize)
     index_start = df.index[-1] + 1
-    # break
+    break
 
 df = pd.read_sql_query('select * from {table} limit 5'.format(table=table),engine)
 col_names = df.columns.values

@@ -144,12 +144,14 @@ def encode_df(df,encoders):
 def get_user_info(user,table,disk_engine):
     if user == '.':
         user = "'.'"
-    df_u = pd.read_sql_query('select * from {table} where acct_id = {user}::text'.format(table=table,user=user),disk_engine)
+    df_u = pd.read_sql_query('select * from {table} where acct_id = {user}'.format(table=table,user=user),disk_engine)
     return df_u
 
 def get_last_date(cutt_off_date,table,disk_engine):
+
     query = '''select authzn_rqst_proc_tm from {table} where frd_ind_swt_dt >='{cutt_off_date}' order by authzn_rqst_proc_tm limit 1'''
     
+
     # query = ''.join(query)
     query = query.format(table=table,cutt_off_date=cutt_off_date)
     dataFrame = pd.read_sql_query(query
@@ -167,7 +169,7 @@ def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_d
     t0 = time.time()
     df_u = get_user_info(user,table,disk_engine)
     t1 = time.time()
-    print 'time user info:', str(t1-t0)  
+    # print 'time user info:', str(t1-t0)  
 
     if events_tbl:
         df_u_events = get_user_info(user,events_tbl,disk_engine)
@@ -176,12 +178,12 @@ def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_d
         print df_u
         # sys.exit()
     '''
-    serious bug ordering has to occur before time shift! otherwise the shift occurs in random fashion
+    serious bug: ordering has to occur before time shift! otherwise the shift occurs in random fashion
     '''
     t0 = time.time()
     df_u = df_u.sort_values('authzn_rqst_proc_tm',ascending=True)
     t1 = time.time()
-    print 'time sort:', str(t1-t0)  
+    # print 'time sort:', str(t1-t0)  
 #     display(df_u[df_u['frd_ind_swt_dt'].isnull()])
     df_u = df_u.drop('index', axis=1)
     #columns which are not available at this time step
@@ -199,10 +201,18 @@ def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_d
 #     print df_u.count()
 #     display(df_u.head())
 #     display(df_u.sort_values('authzn_rqst_proc_tm',ascending=True))
-    t0 = time.time()
-    encode_df(df_u,encoders)
-    t1 = time.time()
-    print 'time encoding:', str(t1-t0)  
+
+
+##########REMOVE ENCODING######################
+    # t0 = time.time()
+    # encode_df(df_u,encoders)
+    # t1 = time.time()
+    # print 'time encoding:', str(t1-t0)  
+#############################################
+
+
+
+
 #     print df_u.count()
 #     display(df_u.head())
 #     display(df_u.sort_values('authzn_rqst_proc_tm',ascending=True))
@@ -228,7 +238,7 @@ def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_d
 #     display(df_test)
 
     t1 = time.time()
-    print 'time remaining:', str(t1-t0)      
+    # print 'time remaining:', str(t1-t0)      
 
     # print 'test shape in sequencer',test.shape
     return train[:,0:-2],test[:,0:-2],train[:,-2],test[:,-2]
@@ -258,7 +268,7 @@ def sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,
     print "Number of users:",len(users)
     progress = progressbar.ProgressBar(widgets=[progressbar.Bar('=', '[', ']'), ' ',
                             progressbar.Percentage(), ' ',
-                            progressbar.ETA()]).start()
+                            progressbar.ETA()],maxval=len(users)).start()
     t0 = time.time()
     c = 0
     for user in users:
@@ -327,7 +337,7 @@ def get_count_table(table,disk_engine,cutt_off_date,trans_mode):
         'from {table} '
         'where frd_ind_swt_dt >=' 
              ''' ' ''',
-        cutt_off_date,
+        str(cutt_off_date),
              ''' ' '''
         'order by authzn_rqst_proc_tm limit 1) '
         'group by acct_id order by num_trans']
@@ -340,7 +350,7 @@ def get_count_table(table,disk_engine,cutt_off_date,trans_mode):
     return dataFrame
 
 def trans_num_table(table,disk_engine,mode='train',cutt_off_date='2014-05-11',trans_mode='train'):
-
+    cutt_off_date = pd.to_numeric(pd.to_datetime(pd.Series([cutt_off_date])))[0]
     dataFrame = get_count_table(table,disk_engine,cutt_off_date,trans_mode)
     u_list = set(dataFrame.acct_id)
     
@@ -351,7 +361,7 @@ def trans_num_table(table,disk_engine,mode='train',cutt_off_date='2014-05-11',tr
         users = user_tr
     else:
         users = user_ts
-    
+    print '#users in sequence counting:',users
     total_t = total_trans_batch(users,dataFrame)
     return math.ceil(total_t)
 
@@ -372,6 +382,7 @@ def get_num_trans(user,dfc):
         else:
             seq_len = dfc[dfc['acct_id']==user].values[0][1]
     except:
+        print 'EXCEPTION IN SEQUENCE COUNTING'
         print dfc[dfc['acct_id']==user]
         raise
     return math.ceil(1.0*seq_len/seq_len_param)
@@ -387,7 +398,7 @@ def add_user(index,u_list,dataFrame_count,users):
 def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
                    mode='train',cutt_off_date='2014-05-11',trans_mode='train',sub_sample=None):
 
-
+    
     dataFrame_count = get_count_table(table,disk_engine,cutt_off_date,trans_mode)
     
 #     display(dataFrame_count.head(5)) 
@@ -396,6 +407,7 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
 #     u_list.extend(list(dataFrame_Y.acct_id))
     print 'total # users:',len(u_list)
     u_set = set(u_list)
+    print 'e.g. users', u_list[0:10]
     print 'total # unique users:',len(u_set) 
     user_tr,user_ts = train_test_split(list(u_set), test_size=0.33, random_state=42)
     print 'total # sequences:',total_trans_batch(list(u_set),dataFrame_count)
@@ -475,28 +487,29 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
             ####
             cnt_trans = 0
             yield users
-def eval_trans_generator(disk_engine,encoders,table='data_trim',batch_size=512,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
-    user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table)
-    print "Users generator"
-    while True:
-        users = next(user_gen)
-        yield sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,mode='test',table=table,class_weight=class_weight)
+# def eval_trans_generator(disk_engine,encoders,table='data_trim',batch_size=512,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
+#     user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table)
+#     print "Users generator"
+#     while True:
+#         users = next(user_gen)
+#         yield sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,mode='test',table=table,class_weight=class_weight)
 
-def eval_users_generator(disk_engine,encoders,table='data_trim',batch_size=512,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
-    user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table,mode='test')
-    print "Users generator"
-    while True:
-        users = next(user_gen)
-        yield sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,mode='train',table=table,class_weight=class_weight)   
+# def eval_users_generator(disk_engine,encoders,table='data_trim',batch_size=512,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
+#     user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table,mode='test')
+#     print "Users generator"
+#     while True:
+#         users = next(user_gen)
+#         yield sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,mode='train',table=table,class_weight=class_weight)   
 
 
 def data_generator(user_mode,trans_mode,disk_engine,encoders,table,
                    batch_size=512,usr_ratio=80,class_weight=None,lbl_pad_val = 2,
                    pad_val = -1,cutt_off_date='2014-05-11',sub_sample=None,epoch_size=None,events_tbl=None):
-    user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table,mode=user_mode,trans_mode=trans_mode,sub_sample=sub_sample)
-    print "Users generator"
+    cutt_off_date = pd.to_numeric(pd.to_datetime(pd.Series([cutt_off_date])))[0]
     last_date = get_last_date(cutt_off_date,table,disk_engine)
     print 'last_date calculated!'
+    user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table,mode=user_mode,trans_mode=trans_mode,sub_sample=sub_sample,cutt_off_date=cutt_off_date)
+    print "Users generator"
     x_acc = []
     y_acc = []
     sample_w = []

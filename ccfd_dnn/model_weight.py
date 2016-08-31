@@ -25,19 +25,26 @@ from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model,model_from_yaml
 from keras.layers import Input, Dense, GRU, LSTM, TimeDistributed, Masking,merge
 from model import *
-
+import argparse
 import sys
+
+
+
 if __name__ == "__main__":
 
 
 
+    parser = argparse.ArgumentParser(prog='Weighted Model')
+    parser.add_argument('-t','--table',required=True)
+    args = parser.parse_args()
 
     ####################################DATA SOURCE################################
+    table = vars(args)['table']
     # table = 'data_trim'
     # rsl_file = './data/gs_results_trim.csv'
     # rsl_file = './data/psql_data_trim.csv'
 
-    table = 'data_little'
+    # table = 'data_little_enc'
     # rsl_file = './data/gs_results_little.csv'
     
     # table = 'data_more'
@@ -86,10 +93,11 @@ if __name__ == "__main__":
     tbl_evnt = 'event'
     ##################################
    
-    batch_size = 512
+    batch_size = 300
 
     print "SAMPLES per epoch:",samples_per_epoch
     print "User sample size:",user_sample_size
+    print 'sequence length size',batch_size
     # samples_per_epoch = 1959
     # table = 'data_trim'
     # samples_per_epoch = 485
