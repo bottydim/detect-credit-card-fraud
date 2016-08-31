@@ -29,6 +29,14 @@ from keras.engine.training import *
 from IPython.display import display
 
 
+def get_engine(address = "postgresql+pg8000://script@localhost:5432/ccfd"):
+
+    # disk_engine = create_engine('sqlite:///'+data_dir+db_name,convert_unicode=True)
+    # disk_engine.raw_connection().connection.text_factory = str
+    disk_engine = create_engine(address)
+    return disk_engine
+
+
 class ModelOperator(object):
 
     def __init__(self, model, table, disk_engine,**kwargs):
@@ -58,7 +66,7 @@ def load_encoders(path_encoders=None):
 def load_model(arch_path,w_path=None):
 
     yaml_string = load_object(arch_path)
-    print 'Model LOADED!' 
+    print 'Model Architecture LOADED!' 
     model = model_from_yaml(yaml_string)
     lr= 2.5e-4
     optimizer = keras.optimizers.RMSprop(lr=lr, rho=0.9, epsilon=1e-08)
@@ -191,13 +199,16 @@ def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_d
     unav_cols = [x.lower() for x in unav_cols]
     nan_rpl = ['AUTHZN_APPRL_CD',]
     nan_rpl = [x.lower() for x in nan_rpl]
+
+    # print 'null values prior ',df_u.isnull().sum()
     for col in unav_cols:
         df_u[col] = df_u[col].shift(1)
         loc = list(df_u.columns.values).index(col)
-        if(col in nan_rpl):
-            df_u.iloc[0,loc] = 'nan'
-        else:
-            df_u.iloc[0,loc] = pad_val
+        # if(col in nan_rpl):
+        #     df_u.iloc[0,loc] = 'nan'
+        # else:
+        df_u.iloc[0,loc] = pad_val
+    # print 'null values posterior',df_u.isnull().sum()
 #     print df_u.count()
 #     display(df_u.head())
 #     display(df_u.sort_values('authzn_rqst_proc_tm',ascending=True))
@@ -351,7 +362,9 @@ def get_count_table(table,disk_engine,cutt_off_date,trans_mode):
 
 def trans_num_table(table,disk_engine,mode='train',cutt_off_date='2014-05-11',trans_mode='train'):
     cutt_off_date = pd.to_numeric(pd.to_datetime(pd.Series([cutt_off_date])))[0]
-    dataFrame = get_count_table(table,disk_engine,cutt_off_date,trans_mode)
+    last_date = get_last_date(cutt_off_date,table,disk_engine)
+    print 'last_date calculated!'
+    dataFrame = get_count_table(table,disk_engine,last_date,trans_mode)
     u_list = set(dataFrame.acct_id)
     
     user_tr,user_ts = train_test_split(list(u_list), test_size=0.33, random_state=42)
@@ -361,7 +374,7 @@ def trans_num_table(table,disk_engine,mode='train',cutt_off_date='2014-05-11',tr
         users = user_tr
     else:
         users = user_ts
-    print '#users in sequence counting:',users
+    print '#users in sequence counting:',len(users)
     total_t = total_trans_batch(users,dataFrame)
     return math.ceil(total_t)
 
@@ -432,7 +445,6 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
     while True:
         users = set()
         cnt_trans = 0
-        total_trans = 0
         if sub_sample != None:
             print 'SUBSAMPLING'
             assert sub_sample<=len(u_list_all), 'sub_sample size select is {sub_sample}, but there are only {us} users'.format(sub_sample=sub_sample,us=len(u_list_all))
@@ -485,8 +497,11 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
 ###############
             #sOtherwise there is an infinite loop with the same users all the time - head and tail cannot be changed! 
             ####
+            print 'USERGEN: user set sequence length: ',cnt_trans
+            print 'USERGEN: user set cardinality: ',len(users)
             cnt_trans = 0
             yield users
+            users = set()
 # def eval_trans_generator(disk_engine,encoders,table='data_trim',batch_size=512,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1):
 #     user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table)
 #     print "Users generator"
@@ -508,7 +523,7 @@ def data_generator(user_mode,trans_mode,disk_engine,encoders,table,
     cutt_off_date = pd.to_numeric(pd.to_datetime(pd.Series([cutt_off_date])))[0]
     last_date = get_last_date(cutt_off_date,table,disk_engine)
     print 'last_date calculated!'
-    user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table,mode=user_mode,trans_mode=trans_mode,sub_sample=sub_sample,cutt_off_date=cutt_off_date)
+    user_gen = user_generator(disk_engine,usr_ratio=usr_ratio,batch_size=batch_size,table=table,mode=user_mode,trans_mode=trans_mode,sub_sample=sub_sample,cutt_off_date=last_date)
     print "Users generator"
     x_acc = []
     y_acc = []
@@ -522,7 +537,7 @@ def data_generator(user_mode,trans_mode,disk_engine,encoders,table,
         if not(epoch_size == None):
             while True:
                 num_seq = outs[0].shape[0]
-                print 'num_Seq',num_seq
+                print 'DATAGEN: num_Seq - != USERGEN due to chuncking',num_seq
                
                 remain = epoch_size - (total_eg + num_seq)
                 print '{remain} = {epoch_size} - ({total_eg}+{num_seq})'.format(remain=remain,epoch_size=epoch_size,total_eg=total_eg,num_seq=num_seq)   

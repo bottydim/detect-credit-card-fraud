@@ -84,7 +84,7 @@ if __name__ == "__main__":
     epoch_limit = samples_per_epoch
     user_sample_size = None
 
-    nb_epoch = 10
+    nb_epoch = 50
     fraud_w = 400.
     
     ##########ENCODERS CONF
@@ -213,13 +213,14 @@ if __name__ == "__main__":
                                              batch_size=batch_size,usr_ratio=80,class_weight=class_weight,lbl_pad_val = 2, pad_val = -1,
                                              sub_sample=None,epoch_size=None,events_tbl=events_tbl)
                             validation_data = next(val_gen)
+                            print '################GENERATED#######################'
                             ###############CALLBACKS
                             patience = 30
                             early_Stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=patience, verbose=0, mode='auto')
 
                             save_path = './data/models/'+table+'/'
                             var_name = '.{epoch:02d}-{val_loss:.5f}.hdf5'
-                            checkpoint = keras.callbacks.ModelCheckpoint(save_path+title+var_name, monitor='val_loss', verbose=1, save_best_only=True, mode='auto')
+                            checkpoint = keras.callbacks.ModelCheckpoint(save_path+short_title+var_name, monitor='val_loss', verbose=1, save_best_only=True, mode='auto')
 
                             root_url = 'http://localhost:9000'
                             remote_log = keras.callbacks.RemoteMonitor(root=root_url)

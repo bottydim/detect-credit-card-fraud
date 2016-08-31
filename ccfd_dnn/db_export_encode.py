@@ -84,8 +84,8 @@ CREATE TABLE {table}
   FRD_IND_SWT_DT bigint
 );'''
 
-# table = 'auth_enc'
-table = 'data_little_enc'
+table = 'auth_enc'
+# table = 'data_little_enc'
 cursor.execute(drop_qry.format(table=table))
 connection.commit()
 cursor.execute(create_qry.format(table=table))
@@ -322,7 +322,7 @@ for df in pd.read_csv(file_loc, chunksize=chunksize, iterator=True,encoding='ISO
     
     print '{} seconds: inserted {} rows'.format((dt.datetime.now() - t_mid).seconds, j*chunksize)
     index_start = df.index[-1] + 1
-    break
+    # break
 
 df = pd.read_sql_query('select * from {table} limit 5'.format(table=table),engine)
 col_names = df.columns.values

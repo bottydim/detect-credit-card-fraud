@@ -30,6 +30,19 @@ col_names = df.columns.values
 print col_names
 
 
+#count nan vals
+table = 'data_little_enc'
+for c,name in enumerate(col_names):
+    if name =='index':
+        continue
+    print name
+    qry = '''
+    SELECT count(*) FROM {table}
+    WHERE {col} = 'NaN'
+    '''
+    result = cursor.execute(qry.format(table=table,col=name))
+    for row in result:
+        print row
 ################CREATE IDXS##################################
 # for c,name in enumerate(col_names):
 #     if name =='index':
@@ -49,20 +62,20 @@ print col_names
 # print 'composite indeces created'
 ###########################################################################
 
-tbl_evnt = 'event'
-tbl_ath = 'data_trim'
-for c,name in enumerate(col_names):
-    if name =='index':
-        continue
-    t_mid = dt.datetime.now()
-    qry = '''
-    select count(*) as cnt from (select {tbl1}.{col} from {tbl1} where not exists (select {tbl2}.{col}  from {tbl2} where {tbl2}.{col}  = {tbl1}.{col} ) 
-    '''
-    result = cursor.execute(qry.format(tbl1=tbl_evnt,tbl2=tbl_ath,col=name))
-    not_in_auth = result[0]['cnt']
-    print not_in_auth
-    if (not_in_auth>0):
-        message = str(not_in_auth)
-    else:        
-        message = 'OK'
-    print '{} index - {} :created in {}'.format(name,message,(dt.datetime.now() - t_mid).minutes)
+# tbl_evnt = 'event'
+# tbl_ath = 'data_trim'
+# for c,name in enumerate(col_names):
+#     if name =='index':
+#         continue
+#     t_mid = dt.datetime.now()
+#     qry = '''
+#     select count(*) as cnt from (select {tbl1}.{col} from {tbl1} where not exists (select {tbl2}.{col}  from {tbl2} where {tbl2}.{col}  = {tbl1}.{col} ) 
+#     '''
+#     result = cursor.execute(qry.format(tbl1=tbl_evnt,tbl2=tbl_ath,col=name))
+#     not_in_auth = result[0]['cnt']
+#     print not_in_auth
+#     if (not_in_auth>0):
+#         message = str(not_in_auth)
+#     else:        
+#         message = 'OK'
+#     print '{} index - {} :created in {}'.format(name,message,(dt.datetime.now() - t_mid).minutes)

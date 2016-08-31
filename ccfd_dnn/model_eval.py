@@ -24,7 +24,7 @@ from keras.models import Model,model_from_yaml
 from keras.layers import Input, Dense, GRU, LSTM, TimeDistributed, Masking,merge
 from model import *
 import os
-
+import argparse
 
 def get_engine(address = "postgresql+pg8000://script@localhost:5432/ccfd"):
 
@@ -36,13 +36,16 @@ def get_engine(address = "postgresql+pg8000://script@localhost:5432/ccfd"):
 class ModelLoader:
 
     archs = ['/home/botty/Documents/CCFD/data/archs/bi_GRU_320_4_DO-0.3']
-    w_path = '/home/botty/Documents/CCFD/data/models/data_little/'
-    ws = [w_path+'Bidirectional_Class400.0_GRU_320_4_RMSprop_0.00025_epochs_10_DO-0.3.09-0.01.hdf5']
+    __w_path = '/home/botty/Documents/CCFD/data/models/{table}/'
+    __ws = [
+        'Bidirectional_Class400.0_GRU_320_4_RMSprop_0.00025_epochs_10_DO-0.3.09-0.01.hdf5',
+        'Bidirectional_Class400.0_GRU_320_4_RMSprop_0.00025_epochs_10_DO-0.3.05-0.04623.hdf5'
+        ]
 
-    def __init__(self, arch_path, w_path):
+    def __init__(self,table,ws_id,arch_path=archs[0]):
         self.arch_path = arch_path
-        self.w_path = w_path
-        self.model = load_model(arch_path, w_path)
+        self.w_path = ModelLoader.__w_path.format(table=table)+ModelLoader.__ws[ws_id]
+        self.model = load_model(arch_path, self.w_path)
 
 class Evaluator(ModelOperator):
     'Evaluates models'
@@ -65,12 +68,12 @@ class Evaluator(ModelOperator):
         events_tbl = self.events_tbl
         auc_list = self.auc_list
         encoders = self.encoders
-        batch_size = 5000
+        batch_size = 2000
         #calcualte # samples
         val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
         print '# samples',val_samples
 
-        plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
+        plt_filename = './results/figures/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
         eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
                          batch_size=batch_size,usr_ratio=80, class_weight=None,lbl_pad_val = 2, pad_val = -1,events_tbl=events_tbl)
@@ -88,16 +91,35 @@ class Evaluator(ModelOperator):
 
 if __name__ == "__main__":
 
-    table = 'data_little'
-    disk_engine = get_engine()
-    ml = ModelLoader(ModelLoader.archs[0], ModelLoader.ws[0])
-    model = ml.model
-    title = 'BiRNN-DO3'
-    data_little_eval = Evaluator(model, table, disk_engine)
+    parser = argparse.ArgumentParser(prog='Model Evaluator')
+    parser.add_argument('-t','--table',required=True)
+    parser.add_argument('-i','--id',default=1)
+    args = parser.parse_args()
 
+    ####################################DATA SOURCE################################
+    var_args = vars(args)
+    table = var_args['table']
+    w_id = var_args['id']
+    #########################################
+
+    disk_engine = get_engine()
+    ml = ModelLoader(table,w_id)
+    model = ml.model
+    title = 'BiRNN-DO3-DLE'
+    data_little_enc_eval = Evaluator(model, table, disk_engine)
+    table_auth = 'auth_enc'
+    auth_enc_eval = Evaluator(model, table_auth, disk_engine)
     options = ['train','test']
+    py.sign_in('bottydim', 'o1kuyms9zv') 
+    print '=======================DATA LITTLE============================'
     for user_mode in options:
         for trans_mode in options:
             print '################## USER:{user_mode}--------TRANS:{trans_mode}###############'.format(user_mode=user_mode,trans_mode=trans_mode)
-            data_little_eval.evaluate_model(user_mode,trans_mode,title)
+            data_little_enc_eval.evaluate_model(user_mode,trans_mode,title)
             print '#########################################################################################################'
+    print '=======================AUTH============================'
+    # for user_mode in options:
+    #     for trans_mode in options:
+    #         print '################## USER:{user_mode}--------TRANS:{trans_mode}###############'.format(user_mode=user_mode,trans_mode=trans_mode)
+    #         auth_enc_eval.evaluate_model(user_mode,trans_mode,title)
+    #         print '#########################################################################################################'            
