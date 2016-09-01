@@ -2,3 +2,6 @@
 /python-machine-learning-book
 /data
 /results
+.idea/workspace.xml
+.ipynb_checkpoints
+!.gitignore
