@@ -158,7 +158,7 @@ if __name__ == "__main__":
                             title = 'Bidirectional_Class'+str(class_weight[1])+'_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_'+str(type(optimizer).__name__)+'_'+str(lr)+'_epochs_'+str(nb_epoch)+'_DO-'+str(dropout_W)
                             print title
                             input_layer = Input(shape=(int(seq_len_param), 44),name='main_input')
-                            mask = Masking(mask_value=0)(input_layer)
+                            mask = Masking(mask_value=pad_val)(input_layer)
                             x = mask
                             for i in range(num_layers):
                                 if rnn == 'gru':
