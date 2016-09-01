@@ -27,7 +27,7 @@ from keras.models import Model,model_from_yaml
 from keras.layers import Input, Dense, GRU, LSTM, TimeDistributed, Masking
 from keras.engine.training import *
 from IPython.display import display
-
+from utils import *
 
 def get_engine(address = "postgresql+pg8000://script@localhost:5432/ccfd"):
 

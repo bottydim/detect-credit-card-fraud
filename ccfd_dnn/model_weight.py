@@ -33,7 +33,7 @@ import sys
 if __name__ == "__main__":
 
 
-
+    t_start = dt.datetime.now()
     parser = argparse.ArgumentParser(prog='Weighted Model')
     parser.add_argument('-t','--table',required=True)
     args = parser.parse_args()
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     ##################################
    
     batch_size = 300
-
+    batch_size_val = 1000
     print "SAMPLES per epoch:",samples_per_epoch
     print "User sample size:",user_sample_size
     print 'sequence length size',batch_size
@@ -118,8 +118,8 @@ if __name__ == "__main__":
 
 
 
-    hid_dims = [320]
-    num_l = [4]
+    hid_dims = [320,256]
+    num_l = [4,3]
     lr_s = [2.5e-4]
     # lr_s = [1e-2,1e-3,1e-4]
     # lr_s = [1e-1,1e-2,1e-3]
@@ -128,7 +128,8 @@ if __name__ == "__main__":
                     # keras.optimizers.Adam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08),
                     # keras.optimizers.Nadam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08, schedule_decay=0.004)
                     ][x]
-    add_info = str(int(seq_len_param))+'_class_w_'+str(fraud_w)                
+    # add_info = str(int(seq_len_param))+'_class_w_'+str(fraud_w)                
+    add_info = 'Mask=pad_class_w_'+str(fraud_w)                
     
 
     print 'Populating encoders'
@@ -145,6 +146,7 @@ if __name__ == "__main__":
     # sys.exit()
     gru_dict = {}
     lstm_dict = {}
+
     for dropout_W in dropout_W_list:
         for hidden_dim in hid_dims:
         # gru
@@ -210,7 +212,7 @@ if __name__ == "__main__":
                             user_mode = 'test'
                             trans_mode = 'test'
                             val_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                             batch_size=batch_size,usr_ratio=80,class_weight=class_weight,lbl_pad_val = 2, pad_val = -1,
+                                             batch_size=batch_size_val,usr_ratio=80,class_weight=class_weight,lbl_pad_val = 2, pad_val = -1,
                                              sub_sample=None,epoch_size=None,events_tbl=events_tbl)
                             validation_data = next(val_gen)
                             print '################GENERATED#######################'
@@ -322,7 +324,7 @@ if __name__ == "__main__":
                                 auc_string = ','.join(auc_list)
                                 title_csv = title.replace('_',',')+','+str(history.history['acc'][-1])+','+str(history.history['loss'][-1])+','+str(auc_val)+','+str(acc)+','+auc_string+'\n'
                                 file.write(unicode(title_csv))
-                                print 'logged'
+                                print 'logged @ {file}'.format(file=rsl_file)
                             trim_point = -15
                             fig = {
                                 'data': [Scatter(
@@ -330,15 +332,22 @@ if __name__ == "__main__":
                                     y=history.history['loss'][trim_point:])],
                                 'layout': {'title': title}
                                 }
-                            py.image.save_as(fig,filename='./figures/GS/'+table+'/'+title+'_'+table+'_'+add_info+".png")
+                            py.image.save_as(fig,filename='./results/figures/'+table+'/'+short_title+'_'+'LOSS'+'_'+add_info+".png")
                             # iplot(fig,filename='figures/'+title,image='png')
-                            title = title.replace('Loss','Acc')
+                            # title = title.replace('Loss','Acc')
                             fig = {
                                 'data': [Scatter(
                                     x=history.epoch[trim_point:],
                                     y=history.history['acc'][trim_point:])],
                                 'layout': {'title': title}
                                 }
-                            py.image.save_as(fig,filename='./figures/GS/'+table+'/'+title+'_'+table+'_'+add_info+".png")    
+                            py.image.save_as(fig,filename='./results/figures/'+table+'/'+short_title+'_'+'ACC'+'_'+add_info+".png")    
 
-
+                            fig = {
+                                'data': [Scatter(
+                                    x=history.epoch[trim_point:],
+                                    y=history.history['val_loss'][trim_point:])],
+                                'layout': {'title': title}
+                                }
+                            py.image.save_as(fig,filename='./results/figures/'+table+'/'+short_title+'_'+'VAL LOSS'+'_'+add_info+".png")   
+                            print 'time taken: {time}'.format(time=days_hours_minutes_seconds(dt.datetime.now()-t_start))

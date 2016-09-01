@@ -97,49 +97,43 @@ print 'table created'
 encoders = load_encoders()
 
 
+# for key in encoders.keys():
+#   col_id = key
+#   print col_id
+#   print len(encoders[col_id].classes_)
+#   print encoders[col_id].classes_[0:20]
 
-col_id = 'mrch_pstl_cd'
-print len(encoders[col_id].classes_)
-print encoders[col_id].classes_[0:20]
-# print encoders[col_id].classes_[0:20]
-# encoders[col_id].classes_ = [x.encode('utf-8') if x !=None else None for x in encoders[col_id].classes_]
-encoders[col_id].classes_ = [str(x).replace('"','') if x !=None else None for x in encoders[col_id].classes_]
 
-col_id = 'acqr_bin_num'
-# print len(encoders[col_id].classes_)
-# print encoders[col_id].classes_[0:20]
-encoders[col_id].classes_ = [x.encode('utf-8') if x !=None else None for x in encoders[col_id].classes_]
-encoders[col_id].classes_ = [str(x).replace('.0','') if x !=None else None for x in encoders[col_id].classes_]
-# print encoders[col_id].classes_[0:20]
-# sys.exit()
+rm_0_cols = ['acqr_bin_num','trmnl_id','mrch_tmp_prtpn_ind','rqst_card_seq_num','authzn_apprl_cd','authzn_msg_type_modr_cd','mrch_cntry_cd','mrch_catg_cd']
+col_with_enc = ['acqr_bin_num','mrch_nm','mrch_id','mrch_city_nm']
+for col_id in rm_0_cols:
+  print col_id
+  print len(encoders[col_id].classes_)
+  print encoders[col_id].classes_[0:20]
+  if col_id in col_with_enc:
+    encoders[col_id].classes_ = [x.encode('utf-8') if x !=None else None for x in encoders[col_id].classes_]
+    print 'encoded'
+  encoders[col_id].classes_ = [str(x).replace('.0','') if x !=None else None for x in encoders[col_id].classes_]
+  print len(encoders[col_id].classes_)
+  #problem is that sometimes encoding is needed other time it is not
 
-col_id = 'mrch_nm'
-print encoders[col_id].classes_
-# print np.nan in encoders['mrch_pstl_cd'].classes_
-encoders[col_id].classes_ = [x.encode('utf-8') if x !=None else None for x in encoders[col_id].classes_]
-encoders[col_id].classes_ = [str(x).replace('"','') if x !=None else None for x in encoders[col_id].classes_]
+rm_quot_cols = ['mrch_pstl_cd','mrch_nm','trmnl_id','mrch_id','mrch_city_nm']
+for col_id in rm_quot_cols:
+  print col_id
+  print len(encoders[col_id].classes_)
+  print encoders[col_id].classes_[0:20]
+  if col_id in col_with_enc:
+    encoders[col_id].classes_ = [x.encode('utf-8') if x !=None else None for x in encoders[col_id].classes_]
+    print 'encoded'
+  encoders[col_id].classes_ = [str(x).replace('"','') if x !=None else None for x in encoders[col_id].classes_]
+  print len(encoders[col_id].classes_)
 
-col_id = 'trmnl_id'
-print encoders[col_id].classes_
-# print np.nan in encoders['mrch_pstl_cd'].classes_
-# encoders[col_id].classes_ = [x.encode('utf-8') if x !=None else None for x in encoders[col_id].classes_]
-encoders[col_id].classes_ = [str(x).replace('"','') if x !=None else None for x in encoders[col_id].classes_]
 
-col_id = 'mrch_id'
-print encoders[col_id].classes_
-# print np.nan in encoders['mrch_pstl_cd'].classes_
-encoders[col_id].classes_ = [x.encode('utf-8') if x !=None else None for x in encoders[col_id].classes_]
-encoders[col_id].classes_ = [str(x).replace('"','') if x !=None else None for x in encoders[col_id].classes_]
 
 
 
 col_id = 'mrch_city_nm'
-print encoders[col_id].classes_
-# print np.nan in encoders['mrch_pstl_cd'].classes_
-encoders[col_id].classes_ = [x.encode('utf-8') if x !=None else None for x in encoders[col_id].classes_]
-encoders[col_id].classes_ = [str(x).replace('"','') if x !=None else None for x in encoders[col_id].classes_]
-
-
+print len(encoders[col_id].classes_)
 tadex_orig = 'TADEX SKLEP RTV-AGD POM'
 tadex_bug = '"""TADEX"" SKLEP RTV-AGD POM"'
 # print encoders[col_id].classes_
@@ -185,31 +179,38 @@ for df in pd.read_csv(file_loc, chunksize=chunksize, iterator=True,encoding='ISO
     df['AUTHZN_APPRL_CD'] =df['AUTHZN_APPRL_CD'].astype(str)
     df['cavv_cd'.upper()] = df['cavv_cd'.upper()].astype(str)
     # df['mrch_nm'.upper()] = df['mrch_nm'.upper()].astype(str)
-    df['mrch_nm'.upper()] = df['mrch_nm'.upper()].str.encode('utf-8')
-    df['mrch_nm'.upper()] = df['mrch_nm'.upper()].replace({'\"':''},regex=True)
 
+
+
+    # df['mrch_nm'.upper()] = df['mrch_nm'.upper()].str.encode('utf-8')
     # df['mrch_nm'.upper()] = df['mrch_nm'.upper()].replace({'\"':''},regex=True)
 
-    col_id = 'mrch_id'
-    df[col_id.upper()] = df[col_id.upper()].str.encode('utf-8')
-    df[col_id.upper()] = df[col_id.upper()].replace({'\"':''},regex=True)    
+    # df['mrch_nm'.upper()] = df['mrch_nm'.upper()].replace({'\"':''},regex=True)
+    for col_id in rm_quot_cols:
+      df[col_id.upper()] = df[col_id.upper()].str.encode('utf-8')
+      df[col_id.upper()] = df[col_id.upper()].replace({'\"':''},regex=True)    
 
-    col_id = 'trmnl_id'
-    df[col_id.upper()] = df[col_id.upper()].str.encode('utf-8')
-    df[col_id.upper()] = df[col_id.upper()].replace({'\"':''},regex=True)
+    # col_id = 'trmnl_id'
+    # df[col_id.upper()] = df[col_id.upper()].str.encode('utf-8')
+    # df[col_id.upper()] = df[col_id.upper()].replace({'\"':''},regex=True)
 
-    col_id = 'mrch_city_nm'
-    df[col_id.upper()] = df[col_id.upper()].str.encode('utf-8')
-    df[col_id.upper()] = df[col_id.upper()].replace({'\"':''},regex=True)
+    # col_id = 'mrch_city_nm'
+    # df[col_id.upper()] = df[col_id.upper()].str.encode('utf-8')
+    # df[col_id.upper()] = df[col_id.upper()].replace({'\"':''},regex=True)
 
-    col_id = 'mrch_pstl_cd'
-    df[col_id.upper()] = df[col_id.upper()].str.encode('utf-8')
-    df[col_id.upper()] = df[col_id.upper()].replace({'\"':''},regex=True)
+    # col_id = 'mrch_pstl_cd'
+    # df[col_id.upper()] = df[col_id.upper()].str.encode('utf-8')
+    # df[col_id.upper()] = df[col_id.upper()].replace({'\"':''},regex=True)
 
-    col_id = 'acqr_bin_num'
-    df[col_id.upper()] = df[col_id.upper()].astype(str)
-    df[col_id.upper()] = df[col_id.upper()].str.encode('utf-8')
-    df[col_id.upper()] = df[col_id.upper()].replace({'\.0':''},regex=True)
+  
+   
+    for col_id in rm_0_cols:
+      df[col_id.upper()] = df[col_id.upper()].astype(str)
+      df[col_id.upper()] = df[col_id.upper()].str.encode('utf-8')
+      df[col_id.upper()] = df[col_id.upper()].replace({'\.0':''},regex=True)
+
+
+
     # df[col_id.upper()] = df[col_id.upper()].replace({'\"':''},regex=True)
     # a = df['mrch_nm'.upper()] 
     # print a.dtype
