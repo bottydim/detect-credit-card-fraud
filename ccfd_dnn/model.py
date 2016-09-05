@@ -39,8 +39,11 @@ def get_engine(address = "postgresql+pg8000://script@localhost:5432/ccfd"):
 
 class ModelOperator(object):
 
-    def __init__(self, model, table, disk_engine,**kwargs):
-        self.disk_engine = disk_engine
+    def __init__(self, model, table, disk_engine=None,**kwargs):
+        if disk_engine == None:
+            self.disk_engine = get_engine()
+        else:
+            self.disk_engine = disk_engine
         self.model = model
         self.table = table
         self.auc_list = []
@@ -679,6 +682,106 @@ def eval_auc_generator(model, generator, val_samples, max_q_size=10000,plt_filen
         print plt_filename
         py.image.save_as(fig,filename=plt_filename)
     return [auc_val,clc_report,acc]
+
+
+
+def export_generator(models, generator, val_samples, max_q_size=10000,remove_pad=False):
+    processed_samples = 0
+    wait_time = 0.01
+    all_outs = []
+    all_y_r = []
+    all_y_hat = []
+    x_exp = []
+    y_exp = []
+    y_hat_dic = []
+    for c,m in enumerate(models):
+        y_hat_dic.append([])
+    data_gen_queue, _stop = generator_queue(generator, max_q_size=max_q_size)
+
+    while processed_samples < val_samples:
+        print 'insdie'
+        generator_output = None
+        while not _stop.is_set():
+            if not data_gen_queue.empty():
+                generator_output = data_gen_queue.get()
+                break
+            else:
+                time.sleep(wait_time)
+
+        if isinstance(generator_output, tuple):
+            if len(generator_output) == 2:
+                x, y = generator_output
+                sample_weight = None
+            elif len(generator_output) == 3:
+                x, y, sample_weight = generator_output
+            else:
+                _stop.set()
+                raise Exception('output of generator should be a tuple '
+                                '(x, y, sample_weight) '
+                                'or (x, y). Found: ' + str(generator_output))
+        else:
+            _stop.set()
+            raise Exception('output of generator should be a tuple '
+                                '(x, y, sample_weight) '
+                                'or (x, y). Found: ' + str(generator_output))
+
+        try:
+            if x.size != 0:
+                print 'x',x.shape
+                print 'y',y.shape
+                x_re = x.reshape(-1, x.shape[-1])
+                y_re = y.reshape(-1, y.shape[-1])
+                if remove_pad:
+                    pad_ids = np.where(y_re[:,0]!=2)[0]
+                    x_re = x_re[pad_ids,:]
+                    y_re = y_re[pad_ids,:]
+
+
+                x_exp.extend(x_re)
+                y_exp.extend(y_re)
+
+                for c,model in enumerate(models):
+
+                    y_hat = model.predict_on_batch(x)
+                    y_hat_re = y_hat.reshape(-1, y_hat.shape[-1])
+                    if remove_pad:
+                        y_hat_re = y_hat_re[pad_ids,:]
+                    y_hat_exp = y_hat_dic[c]
+                    y_hat_exp.extend(y_hat_re)
+                    print 'y_hat',y_hat_re.shape
+
+
+
+                    
+                print 'x',x_re.shape
+                print 'y',y_re.shape
+
+                
+        except:
+            _stop.set()
+            raise
+        nb_samples = x.shape[0]   
+
+        processed_samples += nb_samples
+
+    _stop.set()
+    x_exp = np.array(x_exp,dtype=np.dtype(float))
+    y_exp = np.array(y_exp,dtype=np.dtype(float))
+    for c,model in enumerate(models):
+        y_hat_exp = y_hat_dic[c]
+        y_hat_exp = np.array(y_hat_exp,dtype=np.dtype(float))
+        y_hat_dic[c] = y_hat_exp
+        print y_hat_exp.shape
+    print x_exp.shape
+    print y_exp.shape
+    
+    return (x_exp, y_exp, y_hat_dic)
+
+
+
+
+
+
 
 
 

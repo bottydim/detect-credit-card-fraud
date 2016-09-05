@@ -31,3 +31,11 @@ nvidia-smi
 #return all rows containing a null
 
 select * from data_little_enc where not(data_little_enc is not null)limit 20;
+
+
+sudo find / -type f -size +50M -exec du -h {} \; | sort -n
+
+Linux command to check disk space
+df command - Shows the amount of disk space used and available on Linux file systems.
+du command - Display the amount of disk space used by the specified files and for each subdirectory.
+btrfs fi df /device/ -

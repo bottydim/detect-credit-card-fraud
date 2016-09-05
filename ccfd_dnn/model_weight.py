@@ -85,7 +85,7 @@ if __name__ == "__main__":
     user_sample_size = None
 
     nb_epoch = 50
-    fraud_w = 400.
+    fraud_w = 1000.
     
     ##########ENCODERS CONF
     tbl_src = 'auth'
@@ -107,7 +107,7 @@ if __name__ == "__main__":
 
     lbl_pad_val = 2
     pad_val = -1
-    dropout_W_list = [0.3]
+    dropout_W_list = [0.5]
     # dropout_W_list = [0.15,0.3,0.4,0.8]
     
     class_weight = {0 : 1.,
@@ -118,9 +118,10 @@ if __name__ == "__main__":
 
 
 
-    hid_dims = [320,256]
-    num_l = [4,3]
-    lr_s = [2.5e-4]
+    hid_dims = [320]
+    num_l = [4]
+    # lr_s = [2.5e-4]
+    lr_s = [1.25e-4,6e-5]
     # lr_s = [1e-2,1e-3,1e-4]
     # lr_s = [1e-1,1e-2,1e-3]
     num_opt = 1
@@ -156,7 +157,7 @@ if __name__ == "__main__":
                     for num_layers in num_l:
                         for rnn in ['gru']:
 
-                            short_title = 'bi_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_DO-'+str(dropout_W)
+                            short_title = 'bi_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_DO-'+str(dropout_W)+'_w'+str(class_weight[1])
                             title = 'Bidirectional_Class'+str(class_weight[1])+'_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_'+str(type(optimizer).__name__)+'_'+str(lr)+'_epochs_'+str(nb_epoch)+'_DO-'+str(dropout_W)
                             print title
                             input_layer = Input(shape=(int(seq_len_param), 44),name='main_input')
@@ -333,6 +334,15 @@ if __name__ == "__main__":
                                 'layout': {'title': title}
                                 }
                             py.image.save_as(fig,filename='./results/figures/'+table+'/'+short_title+'_'+'LOSS'+'_'+add_info+".png")
+                            trim_point = 0
+                            fig = {
+                                'data': [Scatter(
+                                    x=history.epoch[trim_point:],
+                                    y=history.history['loss'][trim_point:])],
+                                'layout': {'title': title}
+                                }
+                            py.image.save_as(fig,filename='./results/figures/'+table+'/'+short_title+'_'+'LOSS'+'_'+'FULL'+".png")                            
+
                             # iplot(fig,filename='figures/'+title,image='png')
                             # title = title.replace('Loss','Acc')
                             fig = {

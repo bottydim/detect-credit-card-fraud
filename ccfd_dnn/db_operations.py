@@ -23,26 +23,26 @@ connection = engine.raw_connection()
 connection.text_factory = lambda x: unicode(x, 'utf-8', 'ignore')
 cursor = connection.cursor()
 
-table = 'auth'
-###get col names
-df = pd.read_sql_query('select * from {table} limit 5'.format(table=table),engine)
-col_names = df.columns.values
-print col_names
+table = 'auth_enc'
+# ###get col names
+# df = pd.read_sql_query('select * from {table} limit 5'.format(table=table),engine)
+# col_names = df.columns.values
+# print col_names
 
 
-#count nan vals
-table = 'data_little_enc'
-for c,name in enumerate(col_names):
-    if name =='index':
-        continue
-    print name
-    qry = '''
-    SELECT count(*) FROM {table}
-    WHERE {col} = 'NaN'
-    '''
-    result = cursor.execute(qry.format(table=table,col=name))
-    for row in result:
-        print row
+# #count nan vals
+# table = 'data_little_enc'
+# for c,name in enumerate(col_names):
+#     if name =='index':
+#         continue
+#     print name
+#     qry = '''
+#     SELECT count(*) FROM {table}
+#     WHERE {col} = 'NaN'
+#     '''
+#     result = cursor.execute(qry.format(table=table,col=name))
+#     for row in result:
+#         print row
 ################CREATE IDXS##################################
 # for c,name in enumerate(col_names):
 #     if name =='index':
@@ -79,3 +79,48 @@ for c,name in enumerate(col_names):
 #     else:        
 #         message = 'OK'
 #     print '{} index - {} :created in {}'.format(name,message,(dt.datetime.now() - t_mid).minutes)
+
+
+
+
+
+
+###########################################################
+###########################################################
+################CREATE IDXS##################################
+
+
+# df = pd.read_sql_query('select * from {table} limit 5'.format(table=table),engine)
+# col_names = df.columns.values
+# print col_names
+# for c,name in enumerate(col_names):
+#     if name =='index':
+#         continue
+#     t_mid = dt.datetime.now()
+#     cursor.execute('''CREATE INDEX IF NOT EXISTS id_{table}_{col} 
+#                 ON {table} ({col})'''.format(table=table,col=name))
+#     connection.commit()
+#     print '{} index created in {}'.format(name,(dt.datetime.now() - t_mid))
+# print 'idxs created!'
+
+
+
+# df = pd.read_sql_query('select * from {table} limit 5'.format(table=table),engine)
+# col_names = df.columns.values
+# print col_names
+
+
+
+##############################CREATE COMPOSITE IDXS####################################
+
+cursor.execute('''CREATE INDEX id_{table}_acct_id_tm
+                ON {table} (acct_id,AUTHZN_RQST_PROC_TM)'''.format(table=table))
+cursor.execute('''CREATE INDEX id_{table}_tm_frd 
+                ON {table} (AUTHZN_RQST_PROC_TM,FRD_IND_SWT_DT)'''.format(table=table))
+connection.commit()
+print 'composite indeces created'
+
+
+
+
+###########################################################################
