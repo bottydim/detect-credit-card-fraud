@@ -107,7 +107,7 @@ if __name__ == "__main__":
 
     lbl_pad_val = 2
     pad_val = -1
-    dropout_W_list = [0.5]
+    dropout_W_list = [0.3]
     # dropout_W_list = [0.15,0.3,0.4,0.8]
     
     class_weight = {0 : 1.,
@@ -118,10 +118,10 @@ if __name__ == "__main__":
 
 
 
-    hid_dims = [320]
-    num_l = [4]
-    # lr_s = [2.5e-4]
-    lr_s = [1.25e-4,6e-5]
+    hid_dims = [256]
+    num_l = [5]
+    lr_s = [2.5e-4]
+    # lr_s = [1.25e-4,6e-5]
     # lr_s = [1e-2,1e-3,1e-4]
     # lr_s = [1e-1,1e-2,1e-3]
     num_opt = 1

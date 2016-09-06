@@ -8,7 +8,7 @@ from model_eval import *
 class Exporter(ModelOperator):
 
 
-    export_dist = '/home/botty/Documents/CCFD/data/models/export/'
+    export_dist = '/home/botty/Documents/CCFD/data/models/export'
 
     def __init__(self, *args, **kwargs):
         ModelOperator.__init__(self, *args, **kwargs)
@@ -58,15 +58,18 @@ class Exporter(ModelOperator):
         generator = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
                          batch_size=batch_size,usr_ratio=80, class_weight=None,lbl_pad_val = 2, pad_val = -1,events_tbl=events_tbl)
         
-        (x_exp, y_exp, y_hat_dic) = export_generator(inter_models, generator, val_samples, max_q_size=10000,remove_pad=remove_pad)
+        (x_exp, y_exp, y_hat_dic) = export_generator(inter_models, generator, val_samples, max_q_size=10,remove_pad=remove_pad)
         print 'states acquired!'
-        f_train = self.create_file('features')
-        self.create_DS(f_train,'train',x_exp)
+        f_train = self.create_file('train')
+        self.create_DS(f_train,'features',x_exp)
         self.create_DS(f_train,'labels',y_exp)
+        f_train.flush()
+        f_train.close()
         f_state = self.create_file('states')
         for c,y_hat in enumerate(y_hat_dic):
             self.create_DS(f_state,'layer_{}'.format(c),y_exp)
-
+        f_state.flush()
+        f_state.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Model Exporter')
@@ -83,10 +86,12 @@ if __name__ == "__main__":
     disk_engine = get_engine()
     ml = ModelLoader(table,w_id)
     model = ml.model
-    title = 'BiRNN-DO3-DLE'
+    title = 'birnn-do3-dle'
     model.name = title
 
+    print 'Commencing export...'
     exporter  = Exporter(model,table)
+    exporter.create_file('test')
     exporter.export_states(user_mode='train',trans_mode='train',batch_size=100,val_samples=200,remove_pad=True)
     print 'ALL EXPORTED!'
   
