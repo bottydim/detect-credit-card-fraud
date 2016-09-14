@@ -84,8 +84,8 @@ if __name__ == "__main__":
     epoch_limit = samples_per_epoch
     user_sample_size = None
 
-    nb_epoch = 50
-    fraud_w = 1000.
+    nb_epoch = 300
+    fraud_w_list = [1000.]
     
     ##########ENCODERS CONF
     tbl_src = 'auth'
@@ -106,20 +106,20 @@ if __name__ == "__main__":
 
 
     lbl_pad_val = 2
-    pad_val = -1
-    dropout_W_list = [0.3]
+    pad_val = 0
+
+    # dropout_W_list = [0.3]
+    dropout_W_list = [0.4,0.5,0.6,0.7]
     # dropout_W_list = [0.15,0.3,0.4,0.8]
     
-    class_weight = {0 : 1.,
-            1: fraud_w,
-            2: 0.}
 
 
 
 
 
-    hid_dims = [256]
-    num_l = [5]
+    input_dim = 44
+    hid_dims = [320]
+    num_l = [7]
     lr_s = [2.5e-4]
     # lr_s = [1.25e-4,6e-5]
     # lr_s = [1e-2,1e-3,1e-4]
@@ -130,7 +130,7 @@ if __name__ == "__main__":
                     # keras.optimizers.Nadam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08, schedule_decay=0.004)
                     ][x]
     # add_info = str(int(seq_len_param))+'_class_w_'+str(fraud_w)                
-    add_info = 'Mask=pad_class_w_'+str(fraud_w)                
+                  
     
 
     print 'Populating encoders'
@@ -147,217 +147,223 @@ if __name__ == "__main__":
     # sys.exit()
     gru_dict = {}
     lstm_dict = {}
+    for fraud_w in fraud_w_list:
+        add_info = 'Mask=pad_class_w_'+str(fraud_w)+'ES-OFF'  
+        class_weight = {0 : 1.,
+            1: fraud_w,
+            2: 0.}
+        for dropout_W in dropout_W_list:
+            for hidden_dim in hid_dims:
+            # gru
+                for opt_id in range(num_opt):
+                    for lr in lr_s:
+                        optimizer = opts(opt_id,lr)
+                        for num_layers in num_l:
+                            for rnn in ['gru']:
 
-    for dropout_W in dropout_W_list:
-        for hidden_dim in hid_dims:
-        # gru
-            for opt_id in range(num_opt):
-                for lr in lr_s:
-                    optimizer = opts(opt_id,lr)
-                    for num_layers in num_l:
-                        for rnn in ['gru']:
+                                short_title = 'bi_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_DO-'+str(dropout_W)+'_w'+str(class_weight[1])
+                                title = 'Bidirectional_Class'+str(class_weight[1])+'_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_'+str(type(optimizer).__name__)+'_'+str(lr)+'_epochs_'+str(nb_epoch)+'_DO-'+str(dropout_W)
+                                print title
+                                input_layer = Input(shape=(int(seq_len_param), input_dim),name='main_input')
+                                mask = Masking(mask_value=pad_val)(input_layer)
+                                x = mask
+                                for i in range(num_layers):
+                                    if rnn == 'gru':
+                                        prev_frw = GRU(hidden_dim,#input_length=50,
+                                                            return_sequences=True,go_backwards=False,stateful=False,
+                                                            unroll=False,consume_less='gpu',
+                                                            init='glorot_uniform', inner_init='orthogonal', activation='tanh',
+                                                    inner_activation='hard_sigmoid', W_regularizer=None, U_regularizer=None,
+                                                    b_regularizer=None, dropout_W=dropout_W, dropout_U=0.0)(x)
+                                        prev_bck = GRU(hidden_dim,#input_length=50,
+                                                            return_sequences=True,go_backwards=True,stateful=False,
+                                                            unroll=False,consume_less='gpu',
+                                                            init='glorot_uniform', inner_init='orthogonal', activation='tanh',
+                                                    inner_activation='hard_sigmoid', W_regularizer=None, U_regularizer=None,
+                                                    b_regularizer=None, dropout_W=dropout_W, dropout_U=0.0)(x)
+                                    else:
+                                        prev_frw = LSTM(hidden_dim, return_sequences=True,go_backwards=False,stateful=False,
+                                            init='glorot_uniform', inner_init='orthogonal', 
+                                            forget_bias_init='one', activation='tanh', inner_activation='hard_sigmoid',
+                                            W_regularizer=None, U_regularizer=None, b_regularizer=None, dropout_W=dropout_W, dropout_U=0.0)(x)
+                                        prev_bck = LSTM(hidden_dim, return_sequences=True,go_backwards=True,stateful=False,
+                                            init='glorot_uniform', inner_init='orthogonal', 
+                                            forget_bias_init='one', activation='tanh', inner_activation='hard_sigmoid',
+                                            W_regularizer=None, U_regularizer=None, b_regularizer=None, dropout_W=dropout_W, dropout_U=0.0)(x)
+                                    x = merge([prev_frw, prev_bck], mode='concat')
+                                output_layer = TimeDistributed(Dense(3,activation='softmax'))(x)
+                                model = Model(input=[input_layer],output=[output_layer])
+                                model.compile(optimizer=optimizer,
+                                                loss='sparse_categorical_crossentropy',
+                                                metrics=['accuracy'],
+                                                sample_weight_mode="temporal")
 
-                            short_title = 'bi_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_DO-'+str(dropout_W)+'_w'+str(class_weight[1])
-                            title = 'Bidirectional_Class'+str(class_weight[1])+'_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_'+str(type(optimizer).__name__)+'_'+str(lr)+'_epochs_'+str(nb_epoch)+'_DO-'+str(dropout_W)
-                            print title
-                            input_layer = Input(shape=(int(seq_len_param), 44),name='main_input')
-                            mask = Masking(mask_value=pad_val)(input_layer)
-                            x = mask
-                            for i in range(num_layers):
-                                if rnn == 'gru':
-                                    prev_frw = GRU(hidden_dim,#input_length=50,
-                                                        return_sequences=True,go_backwards=False,stateful=False,
-                                                        unroll=False,consume_less='gpu',
-                                                        init='glorot_uniform', inner_init='orthogonal', activation='tanh',
-                                                inner_activation='hard_sigmoid', W_regularizer=None, U_regularizer=None,
-                                                b_regularizer=None, dropout_W=dropout_W, dropout_U=0.0)(x)
-                                    prev_bck = GRU(hidden_dim,#input_length=50,
-                                                        return_sequences=True,go_backwards=True,stateful=False,
-                                                        unroll=False,consume_less='gpu',
-                                                        init='glorot_uniform', inner_init='orthogonal', activation='tanh',
-                                                inner_activation='hard_sigmoid', W_regularizer=None, U_regularizer=None,
-                                                b_regularizer=None, dropout_W=dropout_W, dropout_U=0.0)(x)
-                                else:
-                                    prev_frw = LSTM(hidden_dim, return_sequences=True,go_backwards=False,stateful=False,
-                                        init='glorot_uniform', inner_init='orthogonal', 
-                                        forget_bias_init='one', activation='tanh', inner_activation='hard_sigmoid',
-                                        W_regularizer=None, U_regularizer=None, b_regularizer=None, dropout_W=dropout_W, dropout_U=0.0)(x)
-                                    prev_bck = LSTM(hidden_dim, return_sequences=True,go_backwards=True,stateful=False,
-                                        init='glorot_uniform', inner_init='orthogonal', 
-                                        forget_bias_init='one', activation='tanh', inner_activation='hard_sigmoid',
-                                        W_regularizer=None, U_regularizer=None, b_regularizer=None, dropout_W=dropout_W, dropout_U=0.0)(x)
-                                x = merge([prev_frw, prev_bck], mode='concat')
-                            output_layer = TimeDistributed(Dense(3,activation='softmax'))(x)
-                            model = Model(input=[input_layer],output=[output_layer])
-                            model.compile(optimizer=optimizer,
-                                            loss='sparse_categorical_crossentropy',
-                                            metrics=['accuracy'],
-                                            sample_weight_mode="temporal")
+                                ########save architecture ######
+                                arch_dir = './data/models/archs/'+short_title+'.yml'
+                                yaml_string = model.to_yaml()
+                                with open(arch_dir, 'wb') as output:
+                                    pickle.dump(yaml_string, output, pickle.HIGHEST_PROTOCOL)
+                                    print 'model saved!'
+                                ##############        
 
-                            ########save architecture ######
-                            arch_dir = './data/models/archs/'+short_title+'.yml'
-                            yaml_string = model.to_yaml()
-                            with open(arch_dir, 'wb') as output:
-                                pickle.dump(yaml_string, output, pickle.HIGHEST_PROTOCOL)
-                                print 'model saved!'
-                            ##############        
+                                user_mode = 'train'
+                                trans_mode = 'train'
+                                data_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
+                                                 batch_size=batch_size,usr_ratio=80,class_weight=class_weight,lbl_pad_val = 2, pad_val = -1,
+                                                 sub_sample=user_sample_size,epoch_size=epoch_limit,events_tbl=events_tbl)
+                                                 # sub_sample=user_sample_size,epoch_size=samples_per_epoch)
+                                ########validation data
+                                print 'Generating Validation set!'
+                                user_mode = 'test'
+                                trans_mode = 'test'
+                                val_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
+                                                 batch_size=batch_size_val,usr_ratio=80,class_weight=class_weight,lbl_pad_val = 2, pad_val = -1,
+                                                 sub_sample=None,epoch_size=None,events_tbl=events_tbl)
+                                validation_data = next(val_gen)
+                                print '################GENERATED#######################'
+                                ###############CALLBACKS
+                                patience = 30
+                                early_Stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=patience, verbose=0, mode='auto')
 
-                            user_mode = 'train'
-                            trans_mode = 'train'
-                            data_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                             batch_size=batch_size,usr_ratio=80,class_weight=class_weight,lbl_pad_val = 2, pad_val = -1,
-                                             sub_sample=user_sample_size,epoch_size=epoch_limit,events_tbl=events_tbl)
-                                             # sub_sample=user_sample_size,epoch_size=samples_per_epoch)
-                            ########validation data
-                            print 'Generating Validation set!'
-                            user_mode = 'test'
-                            trans_mode = 'test'
-                            val_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                             batch_size=batch_size_val,usr_ratio=80,class_weight=class_weight,lbl_pad_val = 2, pad_val = -1,
-                                             sub_sample=None,epoch_size=None,events_tbl=events_tbl)
-                            validation_data = next(val_gen)
-                            print '################GENERATED#######################'
-                            ###############CALLBACKS
-                            patience = 30
-                            early_Stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=patience, verbose=0, mode='auto')
+                                save_path = './data/models/'+table+'/'
+                                var_name = '.{epoch:02d}-{val_loss:.5f}.hdf5'
+                                checkpoint = keras.callbacks.ModelCheckpoint(save_path+short_title+var_name, monitor='val_loss', verbose=1, save_best_only=True, mode='auto')
 
-                            save_path = './data/models/'+table+'/'
-                            var_name = '.{epoch:02d}-{val_loss:.5f}.hdf5'
-                            checkpoint = keras.callbacks.ModelCheckpoint(save_path+short_title+var_name, monitor='val_loss', verbose=1, save_best_only=True, mode='auto')
+                                root_url = 'http://localhost:9000'
+                                remote_log = keras.callbacks.RemoteMonitor(root=root_url)
 
-                            root_url = 'http://localhost:9000'
-                            remote_log = keras.callbacks.RemoteMonitor(root=root_url)
+                                # callbacks = [early_Stop,checkpoint]
+                                callbacks = [early_Stop,checkpoint,remote_log]
+                                callbacks = []
+                                history = model.fit_generator(data_gen, samples_per_epoch, nb_epoch, verbose=1, callbacks=callbacks,validation_data=validation_data, nb_val_samples=None, class_weight=None, max_q_size=10000)
 
-                            # callbacks = [early_Stop,checkpoint]
-                            callbacks = [early_Stop,checkpoint,remote_log]
-                            history = model.fit_generator(data_gen, samples_per_epoch, nb_epoch, verbose=1, callbacks=callbacks,validation_data=validation_data, nb_val_samples=None, class_weight=None, max_q_size=10000)
+                                py.sign_in('bottydim', 'o1kuyms9zv') 
 
-                            py.sign_in('bottydim', 'o1kuyms9zv') 
+                                auc_list = []
+                                print '#########################TRAIN STATS################'
+                                user_mode = 'train'
+                                trans_mode = 'train'
+                                val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
+                                print '# samples',val_samples
+                                plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
-                            auc_list = []
-                            print '#########################TRAIN STATS################'
-                            user_mode = 'train'
-                            trans_mode = 'train'
-                            val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
-                            print '# samples',val_samples
-                            plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
+                                data_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
+                                                 batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1,events_tbl=events_tbl) 
 
-                            data_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                             batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1,events_tbl=events_tbl) 
+                                eval_list  = eval_auc_generator(model, data_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
+                                auc_val = eval_list[0]
+                                clc_report = eval_list[1]
+                                acc = eval_list[2]
+                                print "AUC:",auc_val 
+                                print 'CLassification report'
+                                print clc_report
+                                print 'Accuracy'
+                                print acc
+                                auc_list.append(str(auc_val))
+                                print '##################EVALUATION USERS#########################'
 
-                            eval_list  = eval_auc_generator(model, data_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
-                            auc_val = eval_list[0]
-                            clc_report = eval_list[1]
-                            acc = eval_list[2]
-                            print "AUC:",auc_val 
-                            print 'CLassification report'
-                            print clc_report
-                            print 'Accuracy'
-                            print acc
-                            auc_list.append(str(auc_val))
-                            print '##################EVALUATION USERS#########################'
+                                user_mode = 'test'
+                                trans_mode = 'train'
+                                val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
+                                print '# samples',val_samples
+                                plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
-                            user_mode = 'test'
-                            trans_mode = 'train'
-                            val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
-                            print '# samples',val_samples
-                            plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
+                                eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
+                                                 batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1,events_tbl=events_tbl) 
 
-                            eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                             batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1,events_tbl=events_tbl) 
+                                eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
+                                auc_val = eval_list[0]
+                                clc_report = eval_list[1]
+                                acc = eval_list[2]
+                                print "AUC:",auc_val 
+                                print 'CLassification report'
+                                print clc_report
+                                print 'Accuracy'
+                                print acc
+                                auc_list.append(str(auc_val))
+                                print '#####################################################'
+                                print '##################EVALUATION Transactions#########################'
 
-                            eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
-                            auc_val = eval_list[0]
-                            clc_report = eval_list[1]
-                            acc = eval_list[2]
-                            print "AUC:",auc_val 
-                            print 'CLassification report'
-                            print clc_report
-                            print 'Accuracy'
-                            print acc
-                            auc_list.append(str(auc_val))
-                            print '#####################################################'
-                            print '##################EVALUATION Transactions#########################'
+                                user_mode = 'train'
+                                trans_mode = 'test'
+                                val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
+                                print '# samples',val_samples
+                                plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
-                            user_mode = 'train'
-                            trans_mode = 'test'
-                            val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
-                            print '# samples',val_samples
-                            plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
+                                eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
+                                                 batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1,events_tbl=events_tbl) 
 
-                            eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                             batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1,events_tbl=events_tbl) 
+                                eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
+                                auc_val = eval_list[0]
+                                clc_report = eval_list[1]
+                                acc = eval_list[2]
+                                print "AUC:",auc_val 
+                                print 'CLassification report'
+                                print clc_report
+                                print 'Accuracy'
+                                print acc
+                                auc_list.append(str(auc_val))
+                                print '#####################################################'
+                                print '##################EVALUATION Pure#########################'
 
-                            eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
-                            auc_val = eval_list[0]
-                            clc_report = eval_list[1]
-                            acc = eval_list[2]
-                            print "AUC:",auc_val 
-                            print 'CLassification report'
-                            print clc_report
-                            print 'Accuracy'
-                            print acc
-                            auc_list.append(str(auc_val))
-                            print '#####################################################'
-                            print '##################EVALUATION Pure#########################'
+                                user_mode = 'test'
+                                trans_mode = 'test'
+                                val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
+                                print '# samples',val_samples
+                                plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
+                                
+                                eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
+                                                 batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1,events_tbl=events_tbl)
+                                
+                                eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
+                                auc_val = eval_list[0]
+                                clc_report = eval_list[1]
+                                acc = eval_list[2]
+                                print "AUC:",auc_val 
+                                print 'CLassification report'
+                                print clc_report
+                                print 'Accuracy'
+                                print acc
+                                auc_list.append(str(auc_val))
+                                print '#####################################################'
+                                with io.open(rsl_file, 'a', encoding='utf-8') as file:
+                                    auc_string = ','.join(auc_list)
+                                    title_csv = title.replace('_',',')+','+str(history.history['acc'][-1])+','+str(history.history['loss'][-1])+','+str(auc_val)+','+str(acc)+','+auc_string+'\n'
+                                    file.write(unicode(title_csv))
+                                    print 'logged @ {file}'.format(file=rsl_file)
+                                trim_point = -15
+                                fig = {
+                                    'data': [Scatter(
+                                        x=history.epoch[trim_point:],
+                                        y=history.history['loss'][trim_point:])],
+                                    'layout': {'title': title}
+                                    }
+                                py.image.save_as(fig,filename='./results/figures/'+table+'/'+short_title+'_'+'LOSS'+'_'+add_info+".png")
+                                trim_point = 0
+                                fig = {
+                                    'data': [Scatter(
+                                        x=history.epoch[trim_point:],
+                                        y=history.history['loss'][trim_point:])],
+                                    'layout': {'title': title}
+                                    }
+                                py.image.save_as(fig,filename='./results/figures/'+table+'/'+short_title+'_'+'LOSS'+'_'+'FULL'+".png")                            
 
-                            user_mode = 'test'
-                            trans_mode = 'test'
-                            val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
-                            print '# samples',val_samples
-                            plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
-                            
-                            eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                             batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = 2, pad_val = -1,events_tbl=events_tbl)
-                            
-                            eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
-                            auc_val = eval_list[0]
-                            clc_report = eval_list[1]
-                            acc = eval_list[2]
-                            print "AUC:",auc_val 
-                            print 'CLassification report'
-                            print clc_report
-                            print 'Accuracy'
-                            print acc
-                            auc_list.append(str(auc_val))
-                            print '#####################################################'
-                            with io.open(rsl_file, 'a', encoding='utf-8') as file:
-                                auc_string = ','.join(auc_list)
-                                title_csv = title.replace('_',',')+','+str(history.history['acc'][-1])+','+str(history.history['loss'][-1])+','+str(auc_val)+','+str(acc)+','+auc_string+'\n'
-                                file.write(unicode(title_csv))
-                                print 'logged @ {file}'.format(file=rsl_file)
-                            trim_point = -15
-                            fig = {
-                                'data': [Scatter(
-                                    x=history.epoch[trim_point:],
-                                    y=history.history['loss'][trim_point:])],
-                                'layout': {'title': title}
-                                }
-                            py.image.save_as(fig,filename='./results/figures/'+table+'/'+short_title+'_'+'LOSS'+'_'+add_info+".png")
-                            trim_point = 0
-                            fig = {
-                                'data': [Scatter(
-                                    x=history.epoch[trim_point:],
-                                    y=history.history['loss'][trim_point:])],
-                                'layout': {'title': title}
-                                }
-                            py.image.save_as(fig,filename='./results/figures/'+table+'/'+short_title+'_'+'LOSS'+'_'+'FULL'+".png")                            
-
-                            # iplot(fig,filename='figures/'+title,image='png')
-                            # title = title.replace('Loss','Acc')
-                            fig = {
-                                'data': [Scatter(
-                                    x=history.epoch[trim_point:],
-                                    y=history.history['acc'][trim_point:])],
-                                'layout': {'title': title}
-                                }
-                            py.image.save_as(fig,filename='./results/figures/'+table+'/'+short_title+'_'+'ACC'+'_'+add_info+".png")    
-
-                            fig = {
-                                'data': [Scatter(
-                                    x=history.epoch[trim_point:],
-                                    y=history.history['val_loss'][trim_point:])],
-                                'layout': {'title': title}
-                                }
-                            py.image.save_as(fig,filename='./results/figures/'+table+'/'+short_title+'_'+'VAL LOSS'+'_'+add_info+".png")   
-                            print 'time taken: {time}'.format(time=days_hours_minutes_seconds(dt.datetime.now()-t_start))
+                                # iplot(fig,filename='figures/'+title,image='png')
+                                # title = title.replace('Loss','Acc')
+                                fig = {
+                                    'data': [Scatter(
+                                        x=history.epoch[trim_point:],
+                                        y=history.history['acc'][trim_point:])],
+                                    'layout': {'title': title}
+                                    }
+                                filename_val='./results/figures/'+table+'/'+short_title+'_'+'ACC'+'_'+add_info+".png"
+                                py.image.save_as(fig,filename=filename_val)    
+                                print 'exported @',filename_val
+                                fig = {
+                                    'data': [Scatter(
+                                        x=history.epoch[trim_point:],
+                                        y=history.history['val_loss'][trim_point:])],
+                                    'layout': {'title': title}
+                                    }
+                                py.image.save_as(fig,filename='./results/figures/'+table+'/'+short_title+'_'+'VAL LOSS'+'_'+add_info+".png")   
+                                print 'time taken: {time}'.format(time=days_hours_minutes_seconds(dt.datetime.now()-t_start))

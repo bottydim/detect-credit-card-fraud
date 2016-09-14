@@ -84,9 +84,9 @@ CREATE TABLE {table}
   FRD_IND_SWT_DT bigint
 );'''
 
-table = 'auth_enc'
-# table = 'data_little_enc'
-cursor.execute(drop_qry.format(table=table))
+# table = 'auth_enc'
+table = 'data_little_enc_clean'
+# cursor.execute(drop_qry.format(table=table))
 connection.commit()
 cursor.execute(create_qry.format(table=table))
 connection.commit()
@@ -264,13 +264,16 @@ for df in pd.read_csv(file_loc, chunksize=chunksize, iterator=True,encoding='ISO
                 'mrch_id':{na_val:None},
                 'card_vfcn2_respns_cd':{na_val:None},
                 'mrch_pstl_cd':{na_val:None},
-                'trmnl_id':{na_val:None},
+                'pos_cond_cd:':{na_val:None},
+                'tsys_dcln_reas_cd':{na_val:None},
+                'acqr_crcy_cd':{na_val:None},
                 # 'cavv_cd':{'nan':encoders['cavv_cd'].transform(None),na_val:encoders['cavv_cd'].transform(None)},
                 # 'mrch_pstl_cd':{'':None},
                 # 'mrch_pstl_cd':{'[]':None},
                 # 'mrch_pstl_cd':{'[0]':None},
 
     }
+
     df.replace(rpl_dict,inplace=True)
     
     t1 = time.time()
@@ -323,7 +326,7 @@ for df in pd.read_csv(file_loc, chunksize=chunksize, iterator=True,encoding='ISO
     
     print '{} seconds: inserted {} rows'.format((dt.datetime.now() - t_mid).seconds, j*chunksize)
     index_start = df.index[-1] + 1
-    # break
+    break
 
 df = pd.read_sql_query('select * from {table} limit 5'.format(table=table),engine)
 col_names = df.columns.values

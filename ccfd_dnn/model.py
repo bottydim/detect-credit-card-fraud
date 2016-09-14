@@ -22,13 +22,14 @@ from heraspy.model import HeraModel
 np.random.seed(1337)
 import theano
 import keras
+from keras import backend as K
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model,model_from_yaml
 from keras.layers import Input, Dense, GRU, LSTM, TimeDistributed, Masking
 from keras.engine.training import *
 from IPython.display import display
 from utils import *
-
+import sys
 def get_engine(address = "postgresql+pg8000://script@localhost:5432/ccfd"):
 
     # disk_engine = create_engine('sqlite:///'+data_dir+db_name,convert_unicode=True)
@@ -79,7 +80,9 @@ def load_model(arch_path,w_path=None):
                     sample_weight_mode="temporal")
     if w_path != None:
         model.load_weights(w_path)
-
+    else:
+        print '*************************IMPORTANT**************************'
+        print '***********************Ws are not loaded - empty model'
     return model
 
 time_cols = ['authzn_rqst_proc_tm','PREV_ADR_CHNG_DT','PREV_PMT_DT','PREV_CARD_RQST_DT','frd_ind_swt_dt']
@@ -680,7 +683,14 @@ def eval_auc_generator(model, generator, val_samples, max_q_size=10000,plt_filen
         layout = Layout(title=title, width=800, height=640)
         fig = Figure(data=data, layout=layout)
         print plt_filename
-        py.image.save_as(fig,filename=plt_filename)
+        try:
+            py.image.save_as(fig,filename=plt_filename)
+        except exceptions.PlotlyError, e:
+            print 'PLOTLY CRASH.......'
+            for i in range(10):
+                print >> sys.stderr, 'PLOTLY!'
+            print e
+        
     return [auc_val,clc_report,acc]
 
 
@@ -699,7 +709,6 @@ def export_generator(models, generator, val_samples, max_q_size=10000,remove_pad
     data_gen_queue, _stop = generator_queue(generator, max_q_size=max_q_size)
 
     while processed_samples < val_samples:
-        print 'insdie'
         generator_output = None
         while not _stop.is_set():
             if not data_gen_queue.empty():
@@ -734,21 +743,32 @@ def export_generator(models, generator, val_samples, max_q_size=10000,remove_pad
                 if remove_pad:
                     pad_ids = np.where(y_re[:,0]!=2)[0]
                     x_re = x_re[pad_ids,:]
-                    y_re = y_re[pad_ids,:]
+                    y_re = y_re[pad_ids,0]
 
 
                 x_exp.extend(x_re)
+                #ravel into 1D array 
+                ### fails for MIO(Multi-Input-Output)
+                # y_re = y_re.ravel()
                 y_exp.extend(y_re)
 
                 for c,model in enumerate(models):
 
                     y_hat = model.predict_on_batch(x)
+
+
+                    ###BACKEND IMPLEMENTATION!!!!!#########
+                    # get_output = K.function([model.layers[0].input,K.learning_phase()],
+                    #               [model.layers[-1].output])
+                    # #first 0 for test mode
+                    # y_hat = get_output([x,0])[0]
+
                     y_hat_re = y_hat.reshape(-1, y_hat.shape[-1])
                     if remove_pad:
                         y_hat_re = y_hat_re[pad_ids,:]
                     y_hat_exp = y_hat_dic[c]
                     y_hat_exp.extend(y_hat_re)
-                    print 'y_hat',y_hat_re.shape
+                    print c,' y_hat',y_hat_re.shape
 
 
 

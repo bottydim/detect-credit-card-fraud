@@ -25,7 +25,7 @@ from keras.layers import Input, Dense, GRU, LSTM, TimeDistributed, Masking,merge
 from model import *
 import os
 import argparse
-
+import re
 def get_engine(address = "postgresql+pg8000://script@localhost:5432/ccfd"):
 
     # disk_engine = create_engine('sqlite:///'+data_dir+db_name,convert_unicode=True)
@@ -35,17 +35,27 @@ def get_engine(address = "postgresql+pg8000://script@localhost:5432/ccfd"):
 
 class ModelLoader:
 
+    arch_dir = '/home/botty/Documents/CCFD/data/models/archs/'
     archs = ['/home/botty/Documents/CCFD/data/archs/bi_GRU_320_4_DO-0.3']
-    __w_path = '/home/botty/Documents/CCFD/data/models/{table}/'
+    w_dir = '/home/botty/Documents/CCFD/data/models/{table}/'
     __ws = [
         'Bidirectional_Class400.0_GRU_320_4_RMSprop_0.00025_epochs_10_DO-0.3.09-0.01.hdf5',
         'Bidirectional_Class400.0_GRU_320_4_RMSprop_0.00025_epochs_10_DO-0.3.05-0.04623.hdf5'
         ]
 
-    def __init__(self,table,ws_id,arch_path=archs[0]):
-        self.arch_path = arch_path
-        self.w_path = ModelLoader.__w_path.format(table=table)+ModelLoader.__ws[ws_id]
-        self.model = load_model(arch_path, self.w_path)
+    def __init__(self,table,w_id=-1,arch_path=None,w_path=None):
+
+        if arch_path == None:
+            self.arch_path = archs[0]
+        else:
+            self.arch_path = ModelLoader.arch_dir+arch_path
+        if w_path == None:
+
+            self.w_path = ModelLoader.w_dir.format(table=table)+ModelLoader.__ws[w_id]
+        else:
+            self.w_path = ModelLoader.w_dir.format(table=table)+w_path
+
+        self.model = load_model(self.arch_path, self.w_path)
 
 class Evaluator(ModelOperator):
     'Evaluates models'
@@ -73,12 +83,15 @@ class Evaluator(ModelOperator):
         val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
         print '# samples',val_samples
 
-        plt_filename = './results/figures/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
         eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
                          batch_size=batch_size,usr_ratio=80, class_weight=None,lbl_pad_val = 2, pad_val = -1,events_tbl=events_tbl)
 
+        
+        plt_filename = './results/figures/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
         eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
+        
+
         auc_val = eval_list[0]
         clc_report = eval_list[1]
         acc = eval_list[2]
@@ -89,7 +102,78 @@ class Evaluator(ModelOperator):
         print acc
         auc_list.append(str(auc_val))
 
-if __name__ == "__main__":
+
+def find_best_val_file(name,files):
+    pass
+
+def extract_val_loss(f_name):
+    m = re.search('-[0-9]+\.[0-9]+\.hdf5',f_name)
+    start = m.span()[0]+1
+    end = m.span()[1]-5
+    return float(f_name[start:end])
+
+
+def eval_best_val(table):
+    #populate dictionary 
+    directory = ModelLoader.w_dir.format(table=table)
+    for root, dirs, files in os.walk(directory):
+        names = {}
+        for f in files:
+            # print f
+            m = re.search('\.[0-9]+-',f)
+            name_end = m.span()[0]
+            name = f[0:name_end]
+            # print name
+            if name in names.keys():
+                temp = names[name]
+                temp_val = extract_val_loss(temp)
+                curr_val = extract_val_loss(f)
+                if(curr_val<temp_val):
+                    names[name] = f
+            else:
+                names[name] = f
+    for k,v in names.iteritems():
+        eval_model(table,arch=k+'.yml',w_path=v,add_info='BEST_VAL',title = k)
+
+
+def eval_model(*args, **kwargs):
+
+    table = args[0]
+    arch = None
+    ws_path = None
+    add_info = ''
+    title = 'BiRNN-DO3-DLE'
+    if 'add_info' in kwargs.keys():
+        add_info = kwargs['add_info']
+
+
+    if 'title' in kwargs.keys():
+        title = kwargs['title']
+    if 'arch' in kwargs.keys():
+        arch = kwargs['arch']
+    if 'w_path' in kwargs.keys():
+        w_path = kwargs['w_path']
+    else:
+        w_id = kwargs['w_id']
+    #########################################
+    disk_engine = get_engine()
+    ml = ModelLoader(table,arch_path=arch,w_path=w_path)
+    model = ml.model
+    
+    data_little_enc_eval = Evaluator(model, table, disk_engine)
+    table_auth = 'auth_enc'
+    auth_enc_eval = Evaluator(model, table_auth, disk_engine)
+    options = ['train','test']
+    py.sign_in('bottydim', 'o1kuyms9zv') 
+    print '=======================DATA LITTLE============================'
+    for user_mode in options:
+        for trans_mode in options:
+            print '################## USER:{user_mode}--------TRANS:{trans_mode}###############'.format(user_mode=user_mode,trans_mode=trans_mode)
+            data_little_enc_eval.evaluate_model(user_mode,trans_mode,title,add_info=add_info)
+            print '#########################################################################################################'
+    print '=======================AUTH============================'
+
+def parse_args():
 
     parser = argparse.ArgumentParser(prog='Model Evaluator')
     parser.add_argument('-t','--table',required=True)
@@ -100,24 +184,17 @@ if __name__ == "__main__":
     var_args = vars(args)
     table = var_args['table']
     w_id = var_args['id']
-    #########################################
+    return table, w_id
+if __name__ == "__main__":
 
-    disk_engine = get_engine()
-    ml = ModelLoader(table,w_id)
-    model = ml.model
-    title = 'BiRNN-DO3-DLE'
-    data_little_enc_eval = Evaluator(model, table, disk_engine)
-    table_auth = 'auth_enc'
-    auth_enc_eval = Evaluator(model, table_auth, disk_engine)
-    options = ['train','test']
-    py.sign_in('bottydim', 'o1kuyms9zv') 
-    print '=======================DATA LITTLE============================'
-    for user_mode in options:
-        for trans_mode in options:
-            print '################## USER:{user_mode}--------TRANS:{trans_mode}###############'.format(user_mode=user_mode,trans_mode=trans_mode)
-            data_little_enc_eval.evaluate_model(user_mode,trans_mode,title)
-            print '#########################################################################################################'
-    print '=======================AUTH============================'
+
+
+    table, w_id = parse_args()
+    # eval_model(table,w_id = w_id):
+
+
+    eval_best_val(table)
+
     # for user_mode in options:
     #     for trans_mode in options:
     #         print '################## USER:{user_mode}--------TRANS:{trans_mode}###############'.format(user_mode=user_mode,trans_mode=trans_mode)
