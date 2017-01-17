@@ -9,6 +9,7 @@ from sklearn.cross_validation import train_test_split
 from sklearn import preprocessing
 from sklearn.metrics import roc_curve, auc, accuracy_score,classification_report
 import plotly.tools as tls
+import plotly.exceptions
 import pandas as pd
 from sqlalchemy import create_engine # database connection
 import datetime as dt
@@ -54,6 +55,12 @@ class ModelOperator(object):
         else:
             self.events_tbl = None
 
+
+def save_object(path):
+    with open(path, 'w') as data:
+        obj = pickle.load(data)
+        return obj
+
 def load_object(path):
     with open(path, 'rb') as data:
         obj = pickle.load(data)
@@ -85,8 +92,11 @@ def load_model(arch_path,w_path=None):
         print '***********************Ws are not loaded - empty model'
     return model
 
-time_cols = ['authzn_rqst_proc_tm','PREV_ADR_CHNG_DT','PREV_PMT_DT','PREV_CARD_RQST_DT','frd_ind_swt_dt']
+time_cols = ['authzn_rqst_proc_tm']
 time_cols = [x.lower() for x in time_cols]
+date_cols = ['PREV_ADR_CHNG_DT','PREV_PMT_DT','PREV_CARD_RQST_DT','FRD_IND_SWT_DT']
+date_cols = [x.lower() for x in date_cols]
+
 seq_len_param = 60.0
 def encode_column(df_col):
     print 'Total incoming types:',df_col.shape
@@ -153,7 +163,8 @@ def encode_df(df,encoders):
             raise
     for col in time_cols:
         df[col] = pd.to_numeric(pd.to_datetime(df[col],errors='coerce'))
-
+    for col in date_cols:
+        df[col] = pd.to_numeric(pd.to_datetime(df[col],errors='coerce',format='%d%b%Y'))
 
 def get_user_info(user,table,disk_engine):
     if user == '.':
@@ -170,16 +181,19 @@ def get_last_date(cutt_off_date,table,disk_engine):
     query = query.format(table=table,cutt_off_date=cutt_off_date)
     dataFrame = pd.read_sql_query(query
                        .format(table=table), disk_engine)
+    print query
     print 'last date'
     print pd.to_numeric(pd.to_datetime(dataFrame['authzn_rqst_proc_tm']))
     return pd.to_numeric(pd.to_datetime(dataFrame['authzn_rqst_proc_tm']))[0]
+
 
 def get_col_id(col,df):
     col_list = list(df.columns.values)
     col_list.remove('index')
     col_list.index(col)
-    
-def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_date,events_tbl=None):
+
+
+def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_date,events_tbl=None,discard_id = -2):
     t0 = time.time()
     df_u = get_user_info(user,table,disk_engine)
     t1 = time.time()
@@ -246,11 +260,12 @@ def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_d
     # display(df_test.head())
     train = np.array(df_train)
     test = np.array(df_test)
+
     if df_train.empty:
-        return [],test[:,0:-2],[],test[:,-2]
+        return [],test[:,0:discard_id],[],test[:,discard_id]
     if df_test.empty:
         # print 'train/test sequence split:',np.array(df_train).shape[0],np.array(df_test).shape[0]
-        return train[:,0:-2],[],train[:,-2],[]
+        return train[:,0:discard_id],[],train[:,discard_id],[]
 #     display(df_train)
 #     display(df_test)
 
@@ -258,7 +273,7 @@ def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_d
     # print 'time remaining:', str(t1-t0)      
 
     # print 'test shape in sequencer',test.shape
-    return train[:,0:-2],test[:,0:-2],train[:,-2],test[:,-2]
+    return train[:,0:discard_id],test[:,0:discard_id],train[:,discard_id],test[:,discard_id]
 
 def chunck_seq(seq_list,seq_len=seq_len_param):
     split_seq = map(lambda x: np.array_split(x,math.ceil(len(x)/seq_len)) if len(x)>seq_len else [x],seq_list)
@@ -277,7 +292,7 @@ def generate_sample_w(y_true,class_weight):
         for j in range(shps[1]):
             sample_w[i].append(class_weight[y_true[i,j,0]])
     return np.asarray(sample_w)
-def sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,mode='train',table='data_trim',class_weight=None,events_tbl=None):
+def sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,mode='train',table='data_trim',class_weight=None,events_tbl=None,discard_id = -2):
     X_train_S = []
     X_test_S = []
     y_train_S =[]
@@ -291,7 +306,7 @@ def sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,
     for user in users:
     #     if user != '337018623': 
     #         continue
-        X_train,X_test,y_train,y_test = generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_date,events_tbl)
+        X_train,X_test,y_train,y_test = generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_date,events_tbl,discard_id=discard_id)
         if type(X_train) != list:
             assert X_train.shape[0] == y_train.shape[0], 'Sequence mismatch for user {user}: X_Train.shape {x_shape}'\
                     ' : y_train.shape {y_shape} \n'.format(user=user,x_shape=X_train.shape,y_shape=y_train.shape)
@@ -525,7 +540,26 @@ def user_generator(disk_engine,table='data_trim',batch_size=50,usr_ratio=80,
 
 def data_generator(user_mode,trans_mode,disk_engine,encoders,table,
                    batch_size=512,usr_ratio=80,class_weight=None,lbl_pad_val = 2,
-                   pad_val = -1,cutt_off_date='2014-05-11',sub_sample=None,epoch_size=None,events_tbl=None):
+                   pad_val = -1,cutt_off_date='2014-05-11',sub_sample=None,epoch_size=None,events_tbl=None,discard_id = -2):
+    '''
+
+    :param user_mode:
+    :param trans_mode:
+    :param disk_engine:
+    :param encoders:
+    :param table:
+    :param batch_size:
+    :param usr_ratio:
+    :param class_weight:
+    :param lbl_pad_val:
+    :param pad_val:
+    :param cutt_off_date:
+    :param sub_sample:
+    :param epoch_size:
+    :param events_tbl:
+    :param discard_id:  the number of features @ end of the table to truncate
+    :return:
+    '''
     cutt_off_date = pd.to_numeric(pd.to_datetime(pd.Series([cutt_off_date])))[0]
     last_date = get_last_date(cutt_off_date,table,disk_engine)
     print 'last_date calculated!'
@@ -538,7 +572,7 @@ def data_generator(user_mode,trans_mode,disk_engine,encoders,table,
     while True:
         print 'new users'
         users = next(user_gen)
-        outs = sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,mode=trans_mode,table=table,class_weight=class_weight,events_tbl=events_tbl)
+        outs = sequence_generator(users,encoders,disk_engine,lbl_pad_val,pad_val,last_date,mode=trans_mode,table=table,class_weight=class_weight,events_tbl=events_tbl,discard_id=discard_id)
         
         if not(epoch_size == None):
             while True:
@@ -570,7 +604,7 @@ def data_generator(user_mode,trans_mode,disk_engine,encoders,table,
         else:    
             yield outs
 
-def eval_auc_generator(model, generator, val_samples, max_q_size=10000,plt_filename=None,acc=True):
+def eval_auc_generator(model, generator, val_samples, max_q_size=10000,plt_filename=None,acc=True,tr_percent=0.0136):
     '''Generates predictions for the input samples from a data generator.
     The generator should return the same kind of data as accepted by
     `predict_on_batch`.
@@ -657,6 +691,12 @@ def eval_auc_generator(model, generator, val_samples, max_q_size=10000,plt_filen
     print 'Tresholds shape:',tr_shape
     if tr_shape[0]>3:
         cutt_off_tr = tresholds[3]
+        id_tr, fpr_perc = min(enumerate(fpr), key=lambda x: abs(x[1]-tr_percent))
+        print 'FPR[{}] = {}'.format(id_tr,fpr_perc)
+        print 'TPR[{}] = {}'.format(id_tr,tpr[id_tr])
+        cutt_off_tr = tresholds[id_tr]
+
+
     else:
         cutt_off_tr = tresholds[-1]
 
@@ -685,17 +725,18 @@ def eval_auc_generator(model, generator, val_samples, max_q_size=10000,plt_filen
         print plt_filename
         try:
             py.image.save_as(fig,filename=plt_filename)
-        except exceptions.PlotlyError, e:
+        except Exception, e:
             print 'PLOTLY CRASH.......'
             for i in range(10):
                 print >> sys.stderr, 'PLOTLY!'
             print e
+            print type(e)
         
     return [auc_val,clc_report,acc]
 
 
 
-def export_generator(models, generator, val_samples, max_q_size=10000,remove_pad=False):
+def export_generator(models, generator, val_samples, max_q_size=1000,remove_pad=False):
     processed_samples = 0
     wait_time = 0.01
     all_outs = []
@@ -780,8 +821,11 @@ def export_generator(models, generator, val_samples, max_q_size=10000,remove_pad
         except:
             _stop.set()
             raise
-        nb_samples = x.shape[0]   
-
+        nb_samples = x.shape[0]
+        print 'PROCESSED SAMPLES'   
+        print processed_samples
+        print 'val_samples'
+        print val_samples
         processed_samples += nb_samples
 
     _stop.set()

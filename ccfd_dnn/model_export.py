@@ -4,8 +4,10 @@ from model import *
 import keras
 import argparse
 from model_eval import *
-import os.path.exists
-import os.makedirs
+
+def encode_ascii(x):
+    return x.encode("ascii", "ignore") 
+
 class Exporter(ModelOperator):
 
 
@@ -27,9 +29,34 @@ class Exporter(ModelOperator):
         return f
 
 
+
+    @classmethod
+    def create_ds(self,f,dset_name,arr,group=None,dtype=None):
+
+        # print dset_name
+
+        shape = arr.shape
+        if dtype ==None:
+            dtype = arr.dtype
+        else:
+            # arr = arr.astype(dtype)
+            # arr = np.vectorize(encode_ascii)(arr)
+            arr = np.array(map(encode_ascii,arr))
+        if group==None:
+            dset = f.create_dataset(dset_name,shape, dtype=dtype,data=arr)
+        else:
+            dset = group.create_dataset(dset_name,shape, dtype=dtype,data=arr)
+        print 'DATASET {} {}#!=0 @{}'.format(dset_name,np.count_nonzero(dset),dtype)
+        return dset
+
+
+
+    @classmethod
     def create_group(self,f,name):
         grp = f.create_group(name)
         return grp
+
+
     def create_DS(self,f,dset_name,arr,group=None):
         shape = arr.shape
         dtype = arr.dtype
@@ -37,7 +64,7 @@ class Exporter(ModelOperator):
             dset = f.create_dataset(dset_name,shape, dtype=dtype,data=arr)
         else:
             dset = group.create_dataset(dset_name,shape, dtype=dtype,data=arr)
-        print 'DATASET {} {}!=0@{type}'.format(dset_name,np.count_nonzero(dset),dtype)
+        print 'DATASET {} {}!=0@{}'.format(dset_name,np.count_nonzero(dset),dtype)
         return dset
     def export_states(self,user_mode='train',trans_mode='train',batch_size=2000,val_samples=None,remove_pad=False):
         model = self.model
@@ -84,14 +111,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Model Exporter')
     parser.add_argument('-t','--table',required=True)
     parser.add_argument('-i','--id',default=1)
-    parser.add_argument('-ns','--num-samples',default=3000)
+    parser.add_argument('-ns','--num_samples',default=600)
     args = parser.parse_args()
 
     ####################################DATA SOURCE################################
     var_args = vars(args)
     table = var_args['table']
-    w_id = var_args['id']
-    num_samples = var_args['num-samples']
+    w_id = int(var_args['id'])
+    num_samples = int(var_args['num_samples'])
     #########################################
 
     disk_engine = get_engine()
@@ -103,6 +130,6 @@ if __name__ == "__main__":
 
     print 'Commencing export...'
     exporter  = Exporter(model,table)
-    exporter.export_states(user_mode='train',trans_mode='train',batch_size=100,val_samples=num_samples,remove_pad=True)
+    exporter.export_states(user_mode='train',trans_mode='train',batch_size=200,val_samples=num_samples,remove_pad=True)
     print 'ALL EXPORTED!'
   

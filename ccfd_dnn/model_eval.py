@@ -22,6 +22,7 @@ import keras
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model,model_from_yaml
 from keras.layers import Input, Dense, GRU, LSTM, TimeDistributed, Masking,merge
+from sklearn.metrics import recall_score
 from model import *
 import os
 import argparse
@@ -46,7 +47,7 @@ class ModelLoader:
     def __init__(self,table,w_id=-1,arch_path=None,w_path=None):
 
         if arch_path == None:
-            self.arch_path = archs[0]
+            self.arch_path = self.archs[0]
         else:
             self.arch_path = ModelLoader.arch_dir+arch_path
         if w_path == None:
@@ -76,11 +77,11 @@ class Evaluator(ModelOperator):
         model = self.model
         table = self.table
         events_tbl = self.events_tbl
-        auc_list = self.auc_list
         encoders = self.encoders
         batch_size = 2000
         #calcualte # samples
         val_samples = trans_num_table(table,disk_engine,mode=user_mode,trans_mode=trans_mode)
+        # val_samples = 10
         print '# samples',val_samples
 
 
@@ -100,8 +101,8 @@ class Evaluator(ModelOperator):
         print clc_report
         print 'Accuracy'
         print acc
-        auc_list.append(str(auc_val))
-
+        self.auc_list.append(str(auc_val))
+        return eval_list
 
 def find_best_val_file(name,files):
     pass
@@ -116,6 +117,7 @@ def extract_val_loss(f_name):
 def eval_best_val(table):
     #populate dictionary 
     directory = ModelLoader.w_dir.format(table=table)
+    print 'evaluating path @'
     for root, dirs, files in os.walk(directory):
         names = {}
         for f in files:
@@ -123,6 +125,9 @@ def eval_best_val(table):
             m = re.search('\.[0-9]+-',f)
             name_end = m.span()[0]
             name = f[0:name_end]
+            if 'Bidirectional_Class' in f:
+                print 'skipping >>>>> '+f
+                continue
             # print name
             if name in names.keys():
                 temp = names[name]
@@ -132,9 +137,15 @@ def eval_best_val(table):
                     names[name] = f
             else:
                 names[name] = f
+    print 'TOTAL MODELS TO EVALUATE! - ',len(names) 
     for k,v in names.iteritems():
-        eval_model(table,arch=k+'.yml',w_path=v,add_info='BEST_VAL',title = k)
-
+        auc_list = eval_model(table,arch=k+'.yml',w_path=v,add_info='BEST_VAL',title = k)
+        rsl_file = '/home/botty/Documents/CCFD/results/psql_gs_{table}.csv'.format(table=table)
+        with io.open(rsl_file, 'a', encoding='utf-8') as file:
+            auc_string = ','.join(auc_list)
+            title_csv = k+','+auc_string+'\n'
+            file.write(unicode(title_csv))
+            print 'logged @ {file}'.format(file=rsl_file)
 
 def eval_model(*args, **kwargs):
 
@@ -169,10 +180,10 @@ def eval_model(*args, **kwargs):
     for user_mode in options:
         for trans_mode in options:
             print '################## USER:{user_mode}--------TRANS:{trans_mode}###############'.format(user_mode=user_mode,trans_mode=trans_mode)
-            data_little_enc_eval.evaluate_model(user_mode,trans_mode,title,add_info=add_info)
+            eval_list = data_little_enc_eval.evaluate_model(user_mode,trans_mode,title,add_info=add_info)
             print '#########################################################################################################'
-    print '=======================AUTH============================'
-
+    print '=======================AUC============================'
+    return data_little_enc_eval.auc_list
 def parse_args():
 
     parser = argparse.ArgumentParser(prog='Model Evaluator')

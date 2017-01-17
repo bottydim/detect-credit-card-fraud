@@ -1,0 +1,4 @@
+Commencing...
+select authzn_rqst_proc_tm from auth_event where frd_ind_swt_dt >='1399766400000000000' order by authzn_rqst_proc_tm limit 1
+last date
+Series([], Name: authzn_rqst_proc_tm, dtype: int64)

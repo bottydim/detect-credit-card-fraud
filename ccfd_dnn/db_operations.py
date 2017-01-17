@@ -1,27 +1,19 @@
-import plotly.tools as tls
+
 import pandas as pd
 from sqlalchemy import create_engine # database connection
 import datetime as dt
-from IPython.display import display
-
-import plotly.plotly as py # interactive graphing
-import plotly.graph_objs as go
-from plotly.graph_objs import Bar, Scatter, Marker, Layout, Histogram, Box
-from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
-import numpy as np
-import matplotlib.mlab as mlab
-import matplotlib.pyplot as plt
-
-import psycopg2 as pg
-#load python script that batch loads pandas df to sql
-import cStringIO
 import utils
-import math
 
-class DB_Operator():
 
-    # def __init__(self, *args, **kwargs):
-    def __init__(self,engine):
+class DbOperator():
+
+    def __init__(self, *args, **kwargs):
+
+        if 'engine' not in kwargs.keys():
+            self.address = kwargs['address']
+            engine = create_engine(self.address)
+        else:
+            engine = kwargs['engine']
         self.engine = engine
         self.connection = engine.raw_connection()
         self.connection.text_factory = lambda x: unicode(x, 'utf-8', 'ignore')
@@ -31,7 +23,7 @@ class DB_Operator():
 
     def get_columns(self,tbl):
         engine = self.engine
-        df = pd.read_sql_query('select * from {table} limit 1'.format(table=table),engine)
+        df = pd.read_sql_query('select * from {table} limit 1'.format(table=tbl),engine)
         col_names = df.columns.values
         return col_names
 
@@ -70,6 +62,19 @@ class DB_Operator():
 
 
 ##############################CREATE COMPOSITE IDXS####################################
+    def create_idx_missing(self, table):
+
+        col_names = self.get_columns(table)
+        for c, name in enumerate(col_names):
+            if name =='index':
+                continue
+            t_mid = dt.datetime.now()
+            cursor.execute('''CREATE INDEX IF NOT EXISTS id_{table}_{col}
+                        ON {table} ({col})'''.format(table=table, col=name))
+            connection.commit()
+            print '{} index created in {}'.format(name,(dt.datetime.now() - t_mid).minutes)
+        print 'idxs created!'
+
     def create_idx_comp(self,table):
         cursor = self.cursor
         cursor.execute('''CREATE INDEX id_{table}_acct_id_tm
@@ -78,8 +83,10 @@ class DB_Operator():
                         ON {table} (AUTHZN_RQST_PROC_TM,FRD_IND_SWT_DT)'''.format(table=table))
         connection.commit()
         print 'composite indeces created'
-
-
+    def create_idx_single(self,table,index):
+        cursor = self.cursor
+        cursor.execute('''CREATE INDEX id_{table}_{index}
+                                ON {table} ({index})'''.format(table=table))
 
 if __name__ == "__main__":
     address = 'postgresql://script@localhost:5432/ccfd'
@@ -88,12 +95,16 @@ if __name__ == "__main__":
     connection.text_factory = lambda x: unicode(x, 'utf-8', 'ignore')
     cursor = connection.cursor()
 
-    table = 'auth_enc'
+    table = 'auth_event'
     table_2 = 'data_little_enc'
 
-    db_ops = DB_Operator(engine)
-    db_ops.cf_db_uniq(table,table_2)
+    db_ops = DbOperator(engine=engine)
+    # db_ops.cf_db_uniq(table,table_2)
 
+    ####CREATE IDXs
+    print "create indecies for table {table}".format(table=table)
+    db_ops.create_idx_comp(table)
+    db_ops.create_idx_missing(table)
 # ###get col names
 # df = pd.read_sql_query('select * from {table} limit 5'.format(table=table),engine)
 # col_names = df.columns.values

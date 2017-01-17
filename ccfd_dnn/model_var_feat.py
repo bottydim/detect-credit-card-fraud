@@ -84,7 +84,7 @@ if __name__ == "__main__":
     epoch_limit = samples_per_epoch
     user_sample_size = None
 
-    nb_epoch = 300
+    nb_epoch = 100
     fraud_w_list = [1000.]
     
     ##########ENCODERS CONF
@@ -104,12 +104,11 @@ if __name__ == "__main__":
     
 
 
-
     lbl_pad_val = 2
-    pad_val = 0
+    pad_val = -1
 
-    # dropout_W_list = [0.3]
-    dropout_W_list = [0.4,0.5,0.6,0.7]
+    dropout_W_list = [0.3]
+    # dropout_W_list = [0.4,0.5,0.6,0.7]
     # dropout_W_list = [0.15,0.3,0.4,0.8]
     
 
@@ -117,7 +116,8 @@ if __name__ == "__main__":
 
 
 
-    input_dim = 44
+    discard_val =n-6
+    input_dim = 63
     hid_dims = [320]
     num_l = [7]
     lr_s = [2.5e-4]
@@ -162,7 +162,8 @@ if __name__ == "__main__":
                             for rnn in ['gru']:
 
                                 short_title = 'bi_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_DO-'+str(dropout_W)+'_w'+str(class_weight[1])
-                                title = 'Bidirectional_Class'+str(class_weight[1])+'_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_'+str(type(optimizer).__name__)+'_'+str(lr)+'_epochs_'+str(nb_epoch)+'_DO-'+str(dropout_W)
+                                title = 'Bidirectional_Class'+str(class_weight[1])+'_'+rnn.upper()+'_'+str(hidden_dim)+'_'+str(num_layers)+'_'+str(type(optimizer).__name__)+\
+                                        '_'+str(lr)+'_epochs_'+str(nb_epoch)+'_DO-'+str(dropout_W)+'_'+add_info
                                 print title
                                 input_layer = Input(shape=(int(seq_len_param), input_dim),name='main_input')
                                 mask = Masking(mask_value=pad_val)(input_layer)
@@ -210,7 +211,7 @@ if __name__ == "__main__":
                                 trans_mode = 'train'
                                 data_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
                                                  batch_size=batch_size,usr_ratio=80,class_weight=class_weight,lbl_pad_val = lbl_pad_val, pad_val = pad_val,
-                                                 sub_sample=user_sample_size,epoch_size=epoch_limit,events_tbl=events_tbl)
+                                                 sub_sample=user_sample_size,epoch_size=epoch_limit,events_tbl=events_tbl,discard_id = discard_val)
                                                  # sub_sample=user_sample_size,epoch_size=samples_per_epoch)
                                 ########validation data
                                 print 'Generating Validation set!'
@@ -218,7 +219,7 @@ if __name__ == "__main__":
                                 trans_mode = 'test'
                                 val_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
                                                  batch_size=batch_size_val,usr_ratio=80,class_weight=class_weight,lbl_pad_val = lbl_pad_val, pad_val = pad_val,
-                                                 sub_sample=None,epoch_size=None,events_tbl=events_tbl)
+                                                 sub_sample=None,epoch_size=None,events_tbl=events_tbl,discard_id = discard_val)
                                 validation_data = next(val_gen)
                                 print '################GENERATED#######################'
                                 ###############CALLBACKS
@@ -234,7 +235,7 @@ if __name__ == "__main__":
 
                                 # callbacks = [early_Stop,checkpoint]
                                 callbacks = [early_Stop,checkpoint,remote_log]
-                                callbacks = []
+                                callbacks = [checkpoint,remote_log]
                                 history = model.fit_generator(data_gen, samples_per_epoch, nb_epoch, verbose=1, callbacks=callbacks,validation_data=validation_data, nb_val_samples=None, class_weight=None, max_q_size=10000)
 
                                 py.sign_in('bottydim', 'o1kuyms9zv') 
@@ -248,7 +249,7 @@ if __name__ == "__main__":
                                 plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
                                 data_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                                 batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = lbl_pad_val, pad_val = pad_val,events_tbl=events_tbl) 
+                                                 batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = lbl_pad_val, pad_val = pad_val,events_tbl=events_tbl,discard_id = discard_val) 
 
                                 eval_list  = eval_auc_generator(model, data_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
                                 auc_val = eval_list[0]
@@ -269,7 +270,7 @@ if __name__ == "__main__":
                                 plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
                                 eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                                 batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = lbl_pad_val, pad_val = pad_val,events_tbl=events_tbl) 
+                                                 batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = lbl_pad_val, pad_val = pad_val,events_tbl=events_tbl,discard_id = discard_val) 
 
                                 eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
                                 auc_val = eval_list[0]
@@ -291,7 +292,7 @@ if __name__ == "__main__":
                                 plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
                                 eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                                 batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = lbl_pad_val, pad_val = pad_val,events_tbl=events_tbl) 
+                                                 batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = lbl_pad_val, pad_val = pad_val,events_tbl=events_tbl,discard_id = discard_val) 
 
                                 eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
                                 auc_val = eval_list[0]
@@ -313,7 +314,7 @@ if __name__ == "__main__":
                                 plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
                                 
                                 eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                                 batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = lbl_pad_val, pad_val = pad_val,events_tbl=events_tbl)
+                                                 batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = lbl_pad_val, pad_val = pad_val,events_tbl=events_tbl,discard_id = discard_val)
                                 
                                 eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
                                 auc_val = eval_list[0]
