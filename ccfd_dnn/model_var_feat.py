@@ -93,8 +93,9 @@ if __name__ == "__main__":
     tbl_evnt = 'event'
     ##################################
    
-    batch_size = 300
+    batch_size = 300  #user sample size!
     batch_size_val = 1000
+    seq_len_param = 60.0
     print "SAMPLES per epoch:",samples_per_epoch
     print "User sample size:",user_sample_size
     print 'sequence length size',batch_size
@@ -115,8 +116,8 @@ if __name__ == "__main__":
 
 
 
-
-    discard_val =n-6
+    n = 70
+    discard_val = n-7
     input_dim = 63
     hid_dims = [320]
     num_l = [7]
@@ -124,11 +125,17 @@ if __name__ == "__main__":
     # lr_s = [1.25e-4,6e-5]
     # lr_s = [1e-2,1e-3,1e-4]
     # lr_s = [1e-1,1e-2,1e-3]
+
+    ###Optimizer Set-up
     num_opt = 1
     opts = lambda x,lr:[keras.optimizers.RMSprop(lr=lr, rho=0.9, epsilon=1e-08),
                     # keras.optimizers.Adam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08),
                     # keras.optimizers.Nadam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=1e-08, schedule_decay=0.004)
                     ][x]
+
+    ### Additional parameters
+    patience = 30  # how long to wait before to terminate due to Early Stopping
+
     # add_info = str(int(seq_len_param))+'_class_w_'+str(fraud_w)                
                   
     
@@ -223,7 +230,7 @@ if __name__ == "__main__":
                                 validation_data = next(val_gen)
                                 print '################GENERATED#######################'
                                 ###############CALLBACKS
-                                patience = 30
+
                                 early_Stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=patience, verbose=0, mode='auto')
 
                                 save_path = './data/models/'+table+'/'
@@ -291,10 +298,10 @@ if __name__ == "__main__":
                                 print '# samples',val_samples
                                 plt_filename = './figures/GS/'+table+'/'+'ROC_'+user_mode+'_'+trans_mode+'_'+title+'_'+add_info+".png"
 
-                                eval_gen = data_generator(user_mode,trans_mode,disk_engine,encoders,table=table,
-                                                 batch_size=batch_size,usr_ratio=80,class_weight=None,lbl_pad_val = lbl_pad_val, pad_val = pad_val,events_tbl=events_tbl,discard_id = discard_val) 
+                                eval_gen = data_generator(user_mode,trans_mode, disk_engine,encoders, table=table,
+                                                 batch_size=batch_size,usr_ratio=80,class_weight=None, lbl_pad_val = lbl_pad_val, pad_val = pad_val,events_tbl=events_tbl,discard_id = discard_val)
 
-                                eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000,plt_filename=plt_filename)
+                                eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000, plt_filename=plt_filename)
                                 auc_val = eval_list[0]
                                 clc_report = eval_list[1]
                                 acc = eval_list[2]

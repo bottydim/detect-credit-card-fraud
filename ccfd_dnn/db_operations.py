@@ -83,10 +83,20 @@ class DbOperator():
                         ON {table} (AUTHZN_RQST_PROC_TM,FRD_IND_SWT_DT)'''.format(table=table))
         connection.commit()
         print 'composite indeces created'
-    def create_idx_single(self,table,index):
+        
+    def create_idx_single(self, table, index):
         cursor = self.cursor
         cursor.execute('''CREATE INDEX id_{table}_{index}
-                                ON {table} ({index})'''.format(table=table))
+                                ON {table} ({index})'''.format(table=table,index=index))
+        
+    def copy_rows(self,from_tbl,into_tbl,where_clause=None):
+        #TODO
+    #     query = query
+    #     copy_query = 'COPY \{from_tbl ( query ) }
+    # TO { 'filename' | PROGRAM 'command' | STDOUT }
+    # [ [ WITH ] ( option [, ...] ) ]'
+    #     if(where_clause==None):
+
 
 if __name__ == "__main__":
     address = 'postgresql://script@localhost:5432/ccfd'
