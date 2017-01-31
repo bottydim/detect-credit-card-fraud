@@ -31,12 +31,6 @@ from keras.engine.training import *
 from IPython.display import display
 from utils import *
 import sys
-def get_engine(address = "postgresql+pg8000://script@localhost:5432/ccfd"):
-
-    # disk_engine = create_engine('sqlite:///'+data_dir+db_name,convert_unicode=True)
-    # disk_engine.raw_connection().connection.text_factory = str
-    disk_engine = create_engine(address)
-    return disk_engine
 
 
 class ModelOperator(object):
@@ -97,7 +91,7 @@ time_cols = [x.lower() for x in time_cols]
 date_cols = ['PREV_ADR_CHNG_DT','PREV_PMT_DT','PREV_CARD_RQST_DT','FRD_IND_SWT_DT']
 date_cols = [x.lower() for x in date_cols]
 
-seq_len_param = 60.0
+
 def encode_column(df_col):
     print 'Total incoming types:',df_col.shape
     le = preprocessing.LabelEncoder()
