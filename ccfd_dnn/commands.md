@@ -1,4 +1,4 @@
-
+# SHELL
 	 THEANO_FLAGS=mode=FAST_RUN python ./ccfd_dnn/model_weight.py 1>./results/testing.out
 
 	 docker run --hostname=quickstart.cloudera --privileged=true -t -i -p 8888 -p 7180 -p 80:3000 cloudera/quickstart /usr/bin/docker-quickstart
@@ -23,6 +23,7 @@ select sum(num_trans) from (select acct_id,count(*) as num_trans from data_trim 
 service postgresql restart
 
 free -m
+iostat -x -m 5
 
 THEANO_FLAGS=mode=FAST_RUN,floatX=float32,device=gpu,cuda.root=/usr/local/cuda-7.5/ python ./ccfd_dnn/model_weight.py > ./results/data_little_enc.out
 
