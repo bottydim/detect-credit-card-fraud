@@ -1,6 +1,6 @@
 
 import pandas as pd
-from sqlalchemy import create_engine # database connection
+from sqlalchemy import create_engine  # database connection
 import datetime as dt
 import utils
 
@@ -11,10 +11,9 @@ class DbOperator():
 
         if 'engine' not in kwargs.keys():
             self.address = kwargs['address']
-            engine = create_engine(self.address)
+            self.engine = create_engine(self.address)
         else:
-            engine = kwargs['engine']
-        self.engine = engine
+            self.engine = kwargs['engine']
         self.connection = engine.raw_connection()
         self.connection.text_factory = lambda x: unicode(x, 'utf-8', 'ignore')
         self.cursor = self.connection.cursor()
@@ -44,9 +43,9 @@ class DbOperator():
             # result = cursor.execute(qry.format(tbl1=t1,tbl2=t2,col=name))
 
             qry ='select count(distinct {col}) as cnt from {table}'
-            cursor.execute(qry.format(table=t1,col=name))
+            cursor.execute(qry.format(table=t1, col=name))
             result_t1 = cursor.fetchall()
-            cursor.execute(qry.format(table=t2,col=name))
+            cursor.execute(qry.format(table=t2, col=name))
             result_t2 = cursor.fetchall()
             # print qry.format(table=t1,col=name)
             # print qry.format(table=t2,col=name)
@@ -83,13 +82,15 @@ class DbOperator():
                         ON {table} (AUTHZN_RQST_PROC_TM,FRD_IND_SWT_DT)'''.format(table=table))
         connection.commit()
         print 'composite indeces created'
-        
+
     def create_idx_single(self, table, index):
         cursor = self.cursor
         cursor.execute('''CREATE INDEX id_{table}_{index}
                                 ON {table} ({index})'''.format(table=table,index=index))
-        
+
+
     def copy_rows(self,from_tbl,into_tbl,where_clause=None):
+        pass
         #TODO
     #     query = query
     #     copy_query = 'COPY \{from_tbl ( query ) }
@@ -97,6 +98,74 @@ class DbOperator():
     # [ [ WITH ] ( option [, ...] ) ]'
     #     if(where_clause==None):
 
+    '''
+
+    '''
+    def count_unique_features(self, table, columns=None,skip_col=['index']):
+        uf =self.unique_features(table,columns=columns,skip_col=skip_col)
+        columns = list(self.get_columns(table))
+        print("FEATURE REPORT TABLE {}".format(table))
+        for col in skip_col:
+            columns.remove(col)
+        for col in columns:
+            print("{col}:{cnt}".format(col=col, cnt=uf[col]))
+        num_feat = 0
+        for col in uf.keys():
+            num_feat+=uf[col][1]
+        print("Total number of features: {}".format(num_feat))
+        return num_feat
+
+    def unique_features(self, table,columns=None, skip_col=['index']):
+        # type: (string, string) -> dict
+        '''
+            :param table:
+            :type table:
+            :param columns:
+            :type List of which columns to count. By default None mans all:
+            :return:
+            :rtype:
+            Notes http://stackoverflow.com/questions/11250253/postgresql-countdistinct-very-slow
+            '''
+        uniq_feat_count_list = {}
+        if columns is None:
+            columns = list(self.get_columns(table))
+
+        for col in skip_col:
+            if col in columns:
+                columns.remove(col)
+        for col in columns:
+            qry = 'SELECT COUNT(*) FROM' \
+                  '(SELECT DISTINCT {column_name} FROM {table_name})' \
+                  ' AS temp;'
+            qry = 'SELECT COUNT({column_name}), COUNT(DISTINCT {column_name}), MAX({column_name}),' \
+                  'MIN({column_name}), AVG({column_name})' \
+                  'FROM {table_name}'
+            cursor.execute(qry.format(column_name=col, table_name=table))
+            uniq_feat = cursor.fetchall()
+            uniq_feat_count_list[col] = list(uniq_feat[0])
+            # print("{col}:{cnt}".format(col=col, cnt=uniq_feat_count_list[col]))
+        return uniq_feat_count_list
+
+    def get_frad_users_qry(self, table):
+        frad_users_qry = 'SELECT DISTINCT ({column_name}) ' \
+              'FROM {table_name} ' \
+              'WHERE {filter} = 1'.format(column_name='acct_id',
+                                           filter='frd_ind', table_name=table)
+        return frad_users_qry
+    def get_fraud_users(self, table):
+        return NotImplemented
+        qry = 'SELECT * ' \
+              'FROM {table_name} ' \
+              'WHERE acct_id in (frad_users_qry)'
+        cursor.execute(qry.format(frad_users_qry=frad_users_qry, table_name=table))
+        #TODO
+
+    def count_t_num(self, table, filter_qry):
+        qry = 'SELECT Count(*) FROM {table_name} ' \
+              'WHERE {filter_qry}'.format(table_name=table, filter_qry=filter_qry)
+        self.cursor.execute(qry.format(table_name=table, filter_qry=filter_qry))
+        count = cursor.fetchone()
+        return count
 
 if __name__ == "__main__":
     address = 'postgresql://script@localhost:5432/ccfd'
@@ -105,16 +174,37 @@ if __name__ == "__main__":
     connection.text_factory = lambda x: unicode(x, 'utf-8', 'ignore')
     cursor = connection.cursor()
 
-    table = 'auth_event'
-    table_2 = 'data_little_enc'
+    table = "auth_enc"
+    table_2 = "auth_enc_evt"
+    table_3 = "data_little_event"
 
     db_ops = DbOperator(engine=engine)
     # db_ops.cf_db_uniq(table,table_2)
 
-    ####CREATE IDXs
-    print "create indecies for table {table}".format(table=table)
-    db_ops.create_idx_comp(table)
-    db_ops.create_idx_missing(table)
+    #count number of transaction for all users exhibiting fraud
+    frad_users = '{col} in ({sub_qry})'.format(col='acct_id', sub_qry=db_ops.get_frad_users_qry(table))
+    db_ops.count_t_num(table,frad_users)
+
+
+    # ####COUNT UNIQUE FEATURES
+    # db_ops.count_unique_features(table)
+    # db_ops.count_unique_features(table_2)
+    # db_ops.count_unique_features(table_3)
+
+
+
+
+    # print(db_ops.get_columns(table_3))
+
+
+    # ####CREATE IDXs
+    # print "create indecies for table {table}".format(table=table)
+    # db_ops.create_idx_comp(table)
+    # db_ops.create_idx_missing(table)
+    #
+    #
+
+
 # ###get col names
 # df = pd.read_sql_query('select * from {table} limit 5'.format(table=table),engine)
 # col_names = df.columns.values
@@ -212,6 +302,7 @@ if __name__ == "__main__":
 
 
 ###########################################################################
+
 
 
 

@@ -301,11 +301,11 @@ if __name__ == "__main__":
                                 eval_gen = data_generator(user_mode,trans_mode, disk_engine,encoders, table=table,
                                                  batch_size=batch_size,usr_ratio=80,class_weight=None, lbl_pad_val = lbl_pad_val, pad_val = pad_val,events_tbl=events_tbl,discard_id = discard_val)
 
-                                eval_list  = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000, plt_filename=plt_filename)
+                                eval_list = eval_auc_generator(model, eval_gen, val_samples, max_q_size=10000, plt_filename=plt_filename)
                                 auc_val = eval_list[0]
                                 clc_report = eval_list[1]
                                 acc = eval_list[2]
-                                print "AUC:",auc_val 
+                                print "AUC:", auc_val
                                 print 'CLassification report'
                                 print clc_report
                                 print 'Accuracy'

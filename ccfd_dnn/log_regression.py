@@ -2,7 +2,8 @@ import pandas as pd
 import numpy as np
 from keras.utils.np_utils import to_categorical
 from keras.models import Sequential
-from keras.layers import Dense
+from keras.layers import Dense, Input
+from keras.models import Model
 from keras.wrappers.scikit_learn import KerasRegressor, KerasClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
@@ -45,6 +46,13 @@ if __name__ == '__main__':
         # return linear_regression()
 
 
+    def keras_lin_reg():
+        x = Input((None,input_dimensions))
+        y = Dense(1,activation='linear')(x)
+        model = Model(x,y,"Linear Regression")
+        model.compile(loss='mse', optimizer='sgd')
+        return model
+
     def logistic_regresion():
         logistic = linear_model.LogisticRegression(solver='sag', n_jobs=-1,max_iter=500)
         return logistic
@@ -68,7 +76,8 @@ if __name__ == '__main__':
     estimators = []
     estimators.append(('standardize', StandardScaler()))
     # estimators.append(('mlp', KerasClassifier(build_fn=baseline_model, nb_epoch=100, batch_size=10000, verbose=1)))
-    estimators.append(('linear_reg', baseline_model()))
+    estimators.append(('liner reg', KerasClassifier(build_fn=keras_lin_reg, nb_epoch=100, batch_size=100000, verbose=1)))
+    # estimators.append(('linear_reg', baseline_model()))
     pipeline = Pipeline(estimators)
     kfold = KFold(n_splits=10, random_state=seed)
     results = cross_val_score(pipeline, X, Y, cv=kfold, scoring='roc_auc')
