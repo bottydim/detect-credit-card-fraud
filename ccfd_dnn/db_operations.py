@@ -3,7 +3,7 @@ import pandas as pd
 from sqlalchemy import create_engine  # database connection
 import datetime as dt
 import utils
-
+import time
 
 class DbOperator():
 
@@ -22,13 +22,13 @@ class DbOperator():
 
     def get_columns(self,tbl):
         engine = self.engine
-        df = pd.read_sql_query('select * from {table} limit 1'.format(table=tbl),engine)
+        df = pd.read_sql_query('select * from {table} limit 1'.format(table=tbl), engine)
         col_names = df.columns.values
         return col_names
 
 
-    def cf_db_uniq(self,t1,t2):
-
+    def cf_db_uniq(self, t1, t2):
+        cursor = self.cursor
         col_names = self.get_columns(t1)
         assert utils.list_equal(col_names,self.get_columns(t2)),'Tables have different structure'
 
@@ -62,7 +62,7 @@ class DbOperator():
 
 ##############################CREATE COMPOSITE IDXS####################################
     def create_idx_missing(self, table):
-
+        cursor = self.cursor
         col_names = self.get_columns(table)
         for c, name in enumerate(col_names):
             if name =='index':
@@ -70,8 +70,8 @@ class DbOperator():
             t_mid = dt.datetime.now()
             cursor.execute('''CREATE INDEX IF NOT EXISTS id_{table}_{col}
                         ON {table} ({col})'''.format(table=table, col=name))
-            connection.commit()
-            print '{} index created in {}'.format(name,(dt.datetime.now() - t_mid).minutes)
+            self.connection.commit()
+            print '{} index created in {}'.format(name,(dt.datetime.now() - t_mid))
         print 'idxs created!'
 
     def create_idx_comp(self,table):
@@ -80,7 +80,8 @@ class DbOperator():
                         ON {table} (acct_id,AUTHZN_RQST_PROC_TM)'''.format(table=table))
         cursor.execute('''CREATE INDEX id_{table}_tm_frd 
                         ON {table} (AUTHZN_RQST_PROC_TM,FRD_IND_SWT_DT)'''.format(table=table))
-        connection.commit()
+
+        self.connection.commit()
         print 'composite indeces created'
 
     def create_idx_single(self, table, index):
@@ -88,19 +89,15 @@ class DbOperator():
         cursor.execute('''CREATE INDEX id_{table}_{index}
                                 ON {table} ({index})'''.format(table=table,index=index))
 
+    def copy_rows(self,from_tbl, into_tbl, where_clause=None):
+        copy_query = 'CREATE TABLE {dst} AS ' \
+                     'SELECT * FROM {src} WHERE {filter}'
+        qry = copy_query.format(src=from_tbl,dst=into_tbl,filter=where_clause)
+        cursor = self.cursor
+        print (qry)
+        cursor.execute(qry)
+        self.connection.commit()
 
-    def copy_rows(self,from_tbl,into_tbl,where_clause=None):
-        pass
-        #TODO
-    #     query = query
-    #     copy_query = 'COPY \{from_tbl ( query ) }
-    # TO { 'filename' | PROGRAM 'command' | STDOUT }
-    # [ [ WITH ] ( option [, ...] ) ]'
-    #     if(where_clause==None):
-
-    '''
-
-    '''
     def count_unique_features(self, table, columns=None,skip_col=['index']):
         uf =self.unique_features(table,columns=columns,skip_col=skip_col)
         columns = list(self.get_columns(table))
@@ -140,8 +137,8 @@ class DbOperator():
             qry = 'SELECT COUNT({column_name}), COUNT(DISTINCT {column_name}), MAX({column_name}),' \
                   'MIN({column_name}), AVG({column_name})' \
                   'FROM {table_name}'
-            cursor.execute(qry.format(column_name=col, table_name=table))
-            uniq_feat = cursor.fetchall()
+            self.cursor.execute(qry.format(column_name=col, table_name=table))
+            uniq_feat = self.cursor.fetchall()
             uniq_feat_count_list[col] = list(uniq_feat[0])
             # print("{col}:{cnt}".format(col=col, cnt=uniq_feat_count_list[col]))
         return uniq_feat_count_list
@@ -157,33 +154,68 @@ class DbOperator():
         qry = 'SELECT * ' \
               'FROM {table_name} ' \
               'WHERE acct_id in (frad_users_qry)'
-        cursor.execute(qry.format(frad_users_qry=frad_users_qry, table_name=table))
+        self.cursor.execute(qry.format(frad_users_qry=frad_users_qry, table_name=table))
         #TODO
 
     def count_t_num(self, table, filter_qry):
         qry = 'SELECT Count(*) FROM {table_name} ' \
               'WHERE {filter_qry}'.format(table_name=table, filter_qry=filter_qry)
         self.cursor.execute(qry.format(table_name=table, filter_qry=filter_qry))
-        count = cursor.fetchone()
-        return count
+        count = self.cursor.fetchone()
+        return long(count[0])
 
 if __name__ == "__main__":
     address = 'postgresql://script@localhost:5432/ccfd'
     engine = create_engine(address)
     connection = engine.raw_connection()
     connection.text_factory = lambda x: unicode(x, 'utf-8', 'ignore')
-    cursor = connection.cursor()
 
-    table = "auth_enc"
-    table_2 = "auth_enc_evt"
-    table_3 = "data_little_event"
+    # table = "auth_enc"
+    # table_2 = "auth_enc_evt"
+    # table_3 = "data_little_event"
 
     db_ops = DbOperator(engine=engine)
     # db_ops.cf_db_uniq(table,table_2)
 
+    src_table = "auth_enc"
+    dst_table = "data_fraud"
+    # t0 = time.time()
+    # frad_users = '{col} in (  {sub_qry})'.format(col='acct_id', sub_qry=db_ops.get_frad_users_qry(src_table))
+    # db_ops.copy_rows(src_table, dst_table, frad_users)
+    # t1 = time.time()
+    # print 'time taken:'+str(t1-t0)
+    # print ('Creating IDXs')
+    # t0 = time.time()
+    # db_ops.create_idx_missing(dst_table)
+    # t1 = time.time()
+    # print 'COLUMN time taken:' + str(t1 - t0)
+    # db_ops.create_idx_comp(dst_table)
+    # t1 = time.time()
+    # print 'time taken:' + str(t1 - t0)
+    #
+
+
+    src_table = "auth_enc_evt"
+    dst_table = "data_fraud_evt"
+    t0 = time.time()
+    frad_users = '{col} in (  {sub_qry})'.format(col='acct_id', sub_qry=db_ops.get_frad_users_qry(src_table))
+    db_ops.copy_rows(src_table, dst_table, frad_users)
+    t1 = time.time()
+    print 'time taken:'+str(t1-t0)
+    print ('Creating IDXs')
+    t0 = time.time()
+    db_ops.create_idx_missing(dst_table)
+    t1 = time.time()
+    print 'COLUMN time taken:' + str(t1 - t0)
+    db_ops.create_idx_comp(dst_table)
+    t1 = time.time()
+    print 'time taken:' + str(t1 - t0)
+
+
+
     #count number of transaction for all users exhibiting fraud
-    frad_users = '{col} in ({sub_qry})'.format(col='acct_id', sub_qry=db_ops.get_frad_users_qry(table))
-    db_ops.count_t_num(table,frad_users)
+    # print ("Number of transaction for fraud users in {table} = {num}".format(table=table,
+    #                                                                          num=db_ops.count_t_num(table, frad_users)))
 
 
     # ####COUNT UNIQUE FEATURES
@@ -232,7 +264,7 @@ if __name__ == "__main__":
 #     cursor.execute('''CREATE INDEX id_auth_{col} 
 #                 ON {table} ({col})'''.format(table=table,col=name))
 #     connection.commit()
-#     print '{} index created in {}'.format(name,(dt.datetime.now() - t_mid).minutes)
+#     print '{} index created in {}'.format(name,(dt.datetime.now() - t_mid))
 # print 'idxs created!'
 
 # cursor.execute('''CREATE INDEX id_{table}_acct_id_tm
@@ -264,7 +296,7 @@ if __name__ == "__main__":
 #         message = str(not_in_auth)
 #     else:        
 #         message = 'OK'
-#     print '{} index - {} :created in {}'.format(name,message,(dt.datetime.now() - t_mid).minutes)
+#     print '{} index - {} :created in {}'.format(name,message,(dt.datetime.now() - t_mid))
 
 
 
