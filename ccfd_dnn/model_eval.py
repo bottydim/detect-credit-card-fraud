@@ -1,32 +1,10 @@
-import pandas as pd
-import matplotlib
-import numpy as np
-import math
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import Imputer
-from sklearn.cross_validation import train_test_split
-from sklearn import preprocessing
-import plotly.tools as tls
-import pandas as pd
-from sqlalchemy import create_engine # database connection
-import datetime as dt
-import io
-import logging
-import plotly.plotly as py # interactive graphing
-from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
-from plotly.graph_objs import Bar, Scatter, Marker, Layout 
-from heraspy.model import HeraModel
-np.random.seed(1337)
-import theano
-import keras
-from keras.preprocessing.sequence import pad_sequences
-from keras.models import Model,model_from_yaml
-from keras.layers import Input, Dense, GRU, LSTM, TimeDistributed, Masking,merge
-from sklearn.metrics import recall_score
-from model import *
 import os
 import argparse
 import re
+import numpy as np
+from model import *
+np.random.seed(1337)
+
 def get_engine(address = "postgresql+pg8000://script@localhost:5432/ccfd"):
 
     # disk_engine = create_engine('sqlite:///'+data_dir+db_name,convert_unicode=True)
