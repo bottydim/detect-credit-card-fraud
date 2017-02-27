@@ -682,7 +682,7 @@ def eval_auc_generator(model, generator, val_samples, max_q_size=10000,plt_filen
     print tpr
     ####################DETERMINE CUTOFF TRESHOLD############
     tr_shape = tresholds.shape
-    print 'Tresholds shape:',tr_shape
+    print 'Tresholds shape:', tr_shape
     if tr_shape[0]>3:
         cutt_off_tr = tresholds[3]
         id_tr, fpr_perc = min(enumerate(fpr), key=lambda x: abs(x[1]-tr_percent))

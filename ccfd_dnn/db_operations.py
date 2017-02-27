@@ -7,6 +7,11 @@ import time
 
 class DbOperator():
 
+
+    skew_dist = "select * from \
+  (SELECT * from {src} where frd_ind=1 ORDER BY RANDOM() LIMIT {num_frd}) as temp \
+UNION \
+(SELECT * from {src} WHERE frd_ind=0 ORDER BY random() LIMIT {num_gen})"
     def __init__(self, *args, **kwargs):
 
         if 'engine' not in kwargs.keys():
@@ -89,14 +94,20 @@ class DbOperator():
         cursor.execute('''CREATE INDEX id_{table}_{index}
                                 ON {table} ({index})'''.format(table=table,index=index))
 
-    def copy_rows(self,from_tbl, into_tbl, where_clause=None):
-        copy_query = 'CREATE TABLE {dst} AS ' \
-                     'SELECT * FROM {src} WHERE {filter}'
-        qry = copy_query.format(src=from_tbl,dst=into_tbl,filter=where_clause)
-        cursor = self.cursor
+
+    def copy_rows_select(self,from_tbl, into_tbl, select):
+
+        copy_query = 'CREATE TABLE {dst} AS {select}'
+        assert ("{src}" in select), "SELECT query must contain a {src}"
+        select = select.format(src = from_tbl)
+        qry = copy_query.format(dst=into_tbl,select=select)
         print (qry)
+        cursor = self.cursor
         cursor.execute(qry)
         self.connection.commit()
+    def copy_rows(self,from_tbl, into_tbl, where_clause=None):
+        select = 'SELECT * FROM {src} WHERE {filter}'.format(src="{src}", filter=where_clause)
+        self.copy_rows_select(from_tbl,into_tbl,select)
 
     def count_unique_features(self, table, columns=None,skip_col=['index']):
         uf =self.unique_features(table,columns=columns,skip_col=skip_col)
@@ -177,6 +188,12 @@ if __name__ == "__main__":
     db_ops = DbOperator(engine=engine)
     # db_ops.cf_db_uniq(table,table_2)
 
+    ####Create small random franction of the fraud_data set
+    src_table = "data_fraud"
+    dst_table = "data_fraud_little"
+    db_ops.copy_rows_select(src_table,dst_table,db_ops.skew_dist.format(src="{src}", num_frd=1e5, num_gen=5e5))
+
+
     src_table = "auth_enc"
     dst_table = "data_fraud"
     # t0 = time.time()
@@ -194,22 +211,22 @@ if __name__ == "__main__":
     # print 'time taken:' + str(t1 - t0)
     #
 
-
-    src_table = "auth_enc_evt"
-    dst_table = "data_fraud_evt"
-    t0 = time.time()
-    frad_users = '{col} in (  {sub_qry})'.format(col='acct_id', sub_qry=db_ops.get_frad_users_qry(src_table))
-    db_ops.copy_rows(src_table, dst_table, frad_users)
-    t1 = time.time()
-    print 'time taken:'+str(t1-t0)
-    print ('Creating IDXs')
-    t0 = time.time()
-    db_ops.create_idx_missing(dst_table)
-    t1 = time.time()
-    print 'COLUMN time taken:' + str(t1 - t0)
-    db_ops.create_idx_comp(dst_table)
-    t1 = time.time()
-    print 'time taken:' + str(t1 - t0)
+############COPY FROM auth_enc_evt to fraud
+    # src_table = "auth_enc_evt"
+    # dst_table = "data_fraud_evt"
+    # t0 = time.time()
+    # frad_users = '{col} in (  {sub_qry})'.format(col='acct_id', sub_qry=db_ops.get_frad_users_qry(src_table))
+    # db_ops.copy_rows(src_table, dst_table, frad_users)
+    # t1 = time.time()
+    # print 'time taken:'+str(t1-t0)
+    # print ('Creating IDXs')
+    # t0 = time.time()
+    # db_ops.create_idx_missing(dst_table)
+    # t1 = time.time()
+    # print 'COLUMN time taken:' + str(t1 - t0)
+    # db_ops.create_idx_comp(dst_table)
+    # t1 = time.time()
+    # print 'time taken:' + str(t1 - t0)
 
 
 
