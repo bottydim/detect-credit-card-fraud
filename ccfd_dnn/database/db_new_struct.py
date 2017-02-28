@@ -12,7 +12,7 @@ from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
 import numpy as np
 import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
-from model import *
+from ccfd_dnn.model import *
 import psycopg2 as pg
 #load python script that batch loads pandas df to sql
 import cStringIO

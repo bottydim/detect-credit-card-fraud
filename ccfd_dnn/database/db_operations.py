@@ -2,7 +2,7 @@
 import pandas as pd
 from sqlalchemy import create_engine  # database connection
 import datetime as dt
-import utils
+import ccfd_dnn.utils
 import time
 
 class DbOperator():
@@ -35,7 +35,7 @@ UNION \
     def cf_db_uniq(self, t1, t2):
         cursor = self.cursor
         col_names = self.get_columns(t1)
-        assert utils.list_equal(col_names,self.get_columns(t2)),'Tables have different structure'
+        assert ccfd_dnn.utils.list_equal(col_names, self.get_columns(t2)), 'Tables have different structure'
 
 
         for c,name in enumerate(col_names):
@@ -62,7 +62,8 @@ UNION \
                 message = '{t1} - {r1} <<<<<>>>>> {t2} - {r2}'.format(t1=t1,t2=t2,r1=result_t1[0][0],r2=result_t2[0][0])
             else:        
                 message = 'OK'
-            print '{} ===== {} - {}'.format(name,message,utils.days_hours_minutes_seconds(dt.datetime.now() - t_mid))
+            print '{} ===== {} - {}'.format(name, message,
+                                            ccfd_dnn.utils.days_hours_minutes_seconds(dt.datetime.now() - t_mid))
 
 
 ##############################CREATE COMPOSITE IDXS####################################

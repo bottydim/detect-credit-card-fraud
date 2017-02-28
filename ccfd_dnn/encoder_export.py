@@ -3,8 +3,8 @@ import argparse
 import h5py
 import numpy as np
 
+from ccfd_dnn.database.db_operations import DbOperator
 from ccfd_dnn.model.model_export import Exporter
-from db_operations import DbOperator
 from model import load_encoders
 
 if __name__ == "__main__":
