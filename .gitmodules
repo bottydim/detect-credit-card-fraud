@@ -1,0 +1,3 @@
+[submodule "hera"]
+	path = hera
+	url = https://github.com/keplr-io/hera.git
