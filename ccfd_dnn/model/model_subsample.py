@@ -22,7 +22,7 @@ import keras
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model
 from keras.layers import Input, Dense, GRU, LSTM, TimeDistributed, Masking,merge
-from model import *
+from ccfd_dnn.model import *
 
 
 if __name__ == "__main__":

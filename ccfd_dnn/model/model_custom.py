@@ -22,7 +22,8 @@ import keras
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model
 from keras.layers import Input, Dense, GRU, LSTM, TimeDistributed, Masking
-from model import *
+from ccfd_dnn.model import *
+
 # time_cols = ['AUTHZN_RQST_PROC_TM','PREV_ADR_CHNG_DT','PREV_PMT_DT','PREV_CARD_RQST_DT','FRD_IND_SWT_DT']
 # seq_len_param = 60.0
 # def encode_column(df_col):

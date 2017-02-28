@@ -1,10 +1,12 @@
-from model import load_encoders,save_object
-from model_export import Exporter
-from db_operations import DbOperator
-import cPickle as pickle
 import argparse
+
 import h5py
 import numpy as np
+
+from ccfd_dnn.model.model_export import Exporter
+from db_operations import DbOperator
+from model import load_encoders
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Encoder Exporter')
     parser.add_argument('-t','--table',required=True)

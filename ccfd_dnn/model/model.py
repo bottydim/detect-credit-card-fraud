@@ -29,7 +29,7 @@ from keras.models import Model,model_from_yaml
 from keras.layers import Input, Dense, GRU, LSTM, TimeDistributed, Masking
 from keras.engine.training import *
 from IPython.display import display
-from utils import *
+from ccfd_dnn.utils import *
 import sys
 
 

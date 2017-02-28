@@ -2,7 +2,7 @@ import os
 import argparse
 import re
 import numpy as np
-from model import *
+from ccfd_dnn.model import *
 np.random.seed(1337)
 
 def get_engine(address = "postgresql+pg8000://script@localhost:5432/ccfd"):
@@ -154,7 +154,7 @@ def eval_model(*args, **kwargs):
     auth_enc_eval = Evaluator(model, table_auth, disk_engine)
     options = ['train','test']
     py.sign_in('bottydim', 'o1kuyms9zv') 
-    print '=======================DATA LITTLE============================'
+    print '======================={}============================'.format(table)
     for user_mode in options:
         for trans_mode in options:
             print '################## USER:{user_mode}--------TRANS:{trans_mode}###############'.format(user_mode=user_mode,trans_mode=trans_mode)
@@ -165,8 +165,8 @@ def eval_model(*args, **kwargs):
 def parse_args():
 
     parser = argparse.ArgumentParser(prog='Model Evaluator')
-    parser.add_argument('-t','--table',required=True)
-    parser.add_argument('-i','--id',default=1)
+    parser.add_argument('-t','--table', required=True)
+    parser.add_argument('-i','--id', default=1)
     args = parser.parse_args()
 
     ####################################DATA SOURCE################################
@@ -174,9 +174,8 @@ def parse_args():
     table = var_args['table']
     w_id = var_args['id']
     return table, w_id
+
 if __name__ == "__main__":
-
-
 
     table, w_id = parse_args()
     # eval_model(table,w_id = w_id):

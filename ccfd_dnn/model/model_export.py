@@ -1,9 +1,9 @@
 import h5py
 import numpy as np
-from model import *
+from ccfd_dnn.model import *
 import keras
 import argparse
-from model_eval import *
+from model_eval import ModelOperator
 
 def encode_ascii(x):
     return x.encode("ascii", "ignore") 
@@ -106,6 +106,8 @@ class Exporter(ModelOperator):
             self.create_DS(f_state,'layer_{}'.format(c),y_hat)
         # f_state.flush()
         f_state.close()
+    def export_states_mlp(self, X, y):
+        pass
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Model Exporter')
@@ -129,7 +131,7 @@ if __name__ == "__main__":
     model.name = title
 
     print 'Commencing export...'
-    exporter  = Exporter(model,table)
+    exporter = Exporter(model,table)
     exporter.export_states(user_mode='train',trans_mode='train',batch_size=200,val_samples=num_samples,remove_pad=True)
     print 'ALL EXPORTED!'
   
