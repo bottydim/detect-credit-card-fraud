@@ -40,3 +40,29 @@ Linux command to check disk space
 df command - Shows the amount of disk space used and available on Linux file systems.
 du command - Display the amount of disk space used by the specified files and for each subdirectory.
 btrfs fi df /device/ -
+
+apt-get install python-tk
+
+install latex to convert notebooks to pdf
+sudo apt-get install texlive-latex-base
+
+sudo apt-get install xzdec
+
+
+## Debugging in Notebooks
+### Constant interactivity
+
+from IPython.core.interactiveshell import InteractiveShell
+InteractiveShell.ast_node_interactivity = "all"
+### breakpoint
+from IPython.core.debugger import Tracer; Tracer()()
+###navigation
+n(ext) line and run this one
+s(tep): 
+c(ontinue) running until next breakpoint
+q(uit) the debugger
+### Source
+http://kawahara.ca/how-to-debug-a-jupyter-ipython-notebook/
+https://iqbalnaved.wordpress.com/2013/10/17/how-to-debug-in-ipython-using-ipdb/
+## Tip & Tricks for notebooks
+https://www.dataquest.io/blog/jupyter-notebook-tips-tricks-shortcuts/

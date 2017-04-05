@@ -13,69 +13,80 @@ from utils import get_engine
 from sklearn import linear_model
 import matplotlib.pyplot as plt
 
-if __name__ == '__main__':
 
+def get_data(table):
     # load dataset
     table = "data_fraud_little"
     engine = get_engine()
-    dataframe = pd.read_sql_query("select * from {table} limit 10".format(table=table),engine)
+    dataframe = pd.read_sql_query("select * from {table} limit 10".format(table=table), engine)
     dataset = dataframe.values
     print("First one row of the dataset")
     print("Shape [{}]".format(dataset.shape))
-    print(dataset[0:2,:])
+    print(dataset[0:2, :])
     # split into input (X) and output (Y) variables
     data_dimensions = 45
-    #first dimension is the index, must be removed!!!!
+    # first dimension is the index, must be removed!!!!
     X = dataset[:, 1:data_dimensions]
     Y = dataset[:, data_dimensions]
 
-    print("Fraud {}% ".format(float(np.sum(Y==1))*100.0/Y.shape[0]))
-    print("Total #samples:",Y.shape[0])
+    print("Fraud {}% ".format(float(np.sum(Y == 1)) * 100.0 / Y.shape[0]))
+    print("Total #samples:", Y.shape[0])
     Y = to_categorical(Y, nb_classes=None)
-
 
     input_dimensions = X.shape[1]
     print("shapes: X[{}]=====Y[{}]".format(X.shape, Y.shape))
-
-
-
-
-
+    return X, Y
 
     # define base mode
-    def baseline_model():
-        return logistic_regresion()
-        # return linear_regression()
 
 
-    def keras_lin_reg():
-        x = Input((None,input_dimensions))
-        y = Dense(1,activation='linear')(x)
-        model = Model(x,y,"Linear Regression")
-        model.compile(loss='mse', optimizer='sgd')
-        return model
+def baseline_model():
+    return logistic_regresion()
+    # return linear_regression()
 
-    def logistic_regresion():
-        logistic = linear_model.LogisticRegression(solver='sag', n_jobs=-1,max_iter=500)
-        return logistic
-    def linear_regression():
-        lr = linear_model.LinearRegression(n_jobs=-1)
-        return lr
 
-    def mlp_model(hidden=None,layers=1):
-        # create model
-        model = Sequential()
-        model.add(Dense(input_dimensions, input_dim=input_dimensions, init='normal', activation='relu'))
-        if hidden is not None:
-            for l in range(layers):
-                model.add(Dense(hidden))
-        model.add(Dense(2, init='normal', activation='softmax'))
-        # Compile model
-        model.compile(loss='binary_crossentropy', optimizer='adam')
-        return model
+def keras_lin_reg():
+    x = Input((None, input_dimensions))
+    y = Dense(1, activation='linear')(x)
+    model = Model(x, y, "Linear Regression")
+    model.compile(loss='mse', optimizer='sgd')
+    return model
 
-    def mlp_model_wrap(layers=1):
-        return mlp_model(100,layers)
+
+def logistic_regresion():
+    logistic = linear_model.LogisticRegression(solver='sag', n_jobs=-1, max_iter=500)
+    return logistic
+
+
+def linear_regression():
+    lr = linear_model.LinearRegression(n_jobs=-1)
+    return lr
+
+
+def mlp_model(hidden=None, layers=1):
+    # create model
+    model = Sequential()
+    model.add(Dense(hidden, input_dim=input_dimensions, init='normal', activation='relu'))
+    if hidden is not None:
+        for l in range(layers):
+            model.add(Dense(hidden))
+    model.add(Dense(2, init='normal', activation='softmax'))
+    # Compile model
+    model.compile(loss='binary_crossentropy', optimizer='adam')
+    return model
+
+
+def mlp_model_wrap(layers=1):
+    return mlp_model(100, layers)
+
+if __name__ == '__main__':
+
+
+
+
+
+
+
     # fix random seed for reproducibility
     seed = 7
     np.random.seed(seed)

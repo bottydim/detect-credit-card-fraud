@@ -16,7 +16,7 @@ import datetime as dt
 import time
 import io
 import cPickle as pickle
-import plotly.plotly as py # interactive graphing
+import plotly.plotly as py  # interactive graphing
 from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
 from plotly.graph_objs import Bar, Scatter, Marker, Layout, Figure
 from heraspy.model import HeraModel
@@ -31,6 +31,15 @@ from keras.engine.training import *
 from IPython.display import display
 from ccfd_dnn.utils import *
 import sys
+
+
+#CONSTANTS
+time_cols = ['authzn_rqst_proc_tm']
+time_cols = [x.lower() for x in time_cols]
+date_cols = ['PREV_ADR_CHNG_DT','PREV_PMT_DT','PREV_CARD_RQST_DT','FRD_IND_SWT_DT']
+date_cols = [x.lower() for x in date_cols]
+
+
 
 
 class ModelOperator(object):
@@ -85,11 +94,6 @@ def load_model(arch_path,w_path=None):
         print '*************************IMPORTANT**************************'
         print '***********************Ws are not loaded - empty model'
     return model
-
-time_cols = ['authzn_rqst_proc_tm']
-time_cols = [x.lower() for x in time_cols]
-date_cols = ['PREV_ADR_CHNG_DT','PREV_PMT_DT','PREV_CARD_RQST_DT','FRD_IND_SWT_DT']
-date_cols = [x.lower() for x in date_cols]
 
 
 def encode_column(df_col):

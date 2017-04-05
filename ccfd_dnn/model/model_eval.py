@@ -2,7 +2,7 @@ import os
 import argparse
 import re
 import numpy as np
-from ccfd_dnn.model import *
+from model import *
 np.random.seed(1337)
 
 def get_engine(address = "postgresql+pg8000://script@localhost:5432/ccfd"):
@@ -11,6 +11,7 @@ def get_engine(address = "postgresql+pg8000://script@localhost:5432/ccfd"):
     # disk_engine.raw_connection().connection.text_factory = str
     disk_engine = create_engine(address)
     return disk_engine
+
 
 class ModelLoader:
 

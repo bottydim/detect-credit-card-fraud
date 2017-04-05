@@ -24,7 +24,7 @@ import keras
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model,model_from_yaml
 from keras.layers import Input, Dense, GRU, LSTM, TimeDistributed, Masking,merge
-from ccfd_dnn.model import *
+from ccfd_dnn.model.model import *
 import argparse
 import sys
 

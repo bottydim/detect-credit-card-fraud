@@ -3,7 +3,7 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/LSTMVis" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/ccfd_dnn/hera" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/hera" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/python-machine-learning-book" vcs="Git" />
   </component>
 </project>
