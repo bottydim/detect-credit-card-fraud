@@ -14,6 +14,7 @@ import pandas as pd
 from sqlalchemy import create_engine # database connection
 import datetime as dt
 import time
+import os
 import io
 import cPickle as pickle
 import plotly.plotly as py  # interactive graphing
@@ -41,7 +42,7 @@ date_cols = [x.lower() for x in date_cols]
 
 
 
-
+seq_len_param = 60
 class ModelOperator(object):
 
     def __init__(self, model, table, disk_engine=None,**kwargs):
@@ -59,6 +60,15 @@ class ModelOperator(object):
             self.events_tbl = None
 
 
+def get_encoders(path_encoders,tbl_src,tbl_evnt,disk_engine):
+    if os.path.exists(path_encoders):
+        encoders = load_encoders(path_encoders)
+    else:
+        encoders = populate_encoders_scale(tbl_src,disk_engine,tbl_evnt)
+        with open(path_encoders, 'wb') as output:
+            pickle.dump(encoders, output, pickle.HIGHEST_PROTOCOL)
+            print 'ENCODERS SAVED to {path}!'.format(path=path_encoders)
+    return encoders
 def save_object(path):
     with open(path, 'w') as data:
         obj = pickle.load(data)
@@ -274,9 +284,14 @@ def generate_sequence(user,table,encoders,disk_engine,lbl_pad_val,pad_val,last_d
     return train[:,0:discard_id],test[:,0:discard_id],train[:,discard_id],test[:,discard_id]
 
 def chunck_seq(seq_list,seq_len=seq_len_param):
-    split_seq = map(lambda x: np.array_split(x,math.ceil(len(x)/seq_len)) if len(x)>seq_len else [x],seq_list)
+    for x in seq_list:
+        print len(x)
+        print
+    split_seq = map(lambda x: np.array_split(x,math.ceil(len(x)/seq_len)) if x.shape[0]>seq_len else [x], seq_list)
     flattened = [sequence for user_seq in split_seq for sequence in user_seq]
     assert sum(map(lambda x: len(x),flattened)) == sum(map(lambda x: len(x),seq_list))
+    # stores the length of all sequences
+
     chunks_lens = map(lambda x: len(x),flattened)
     for cnk in chunks_lens:
         assert cnk <= seq_len_param, 'Sequence chunks are exceeding the max_len of {} \n {}'.format(seq_len_param,chunks_lens)

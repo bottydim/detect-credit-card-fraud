@@ -142,14 +142,9 @@ if __name__ == "__main__":
 
     print 'Populating encoders'
 
-    path_encoders ='./data/encoders/{tbl_src}+{tbl_evnt}'.format(tbl_src=tbl_src,tbl_evnt=tbl_evnt) 
-    if os.path.exists(path_encoders):
-        encoders = load_encoders(path_encoders)
-    else:
-        encoders = populate_encoders_scale(tbl_src,disk_engine,tbl_evnt)
-        with open(path_encoders, 'wb') as output:
-            pickle.dump(encoders, output, pickle.HIGHEST_PROTOCOL)
-            print 'ENCODERS SAVED to {path}!'.format(path=path_encoders)
+    path_encoders ='./data/encoders/{tbl_src}+{tbl_evnt}'.format(tbl_src=tbl_src,tbl_evnt=tbl_evnt)
+    encoders = get_encoders(path_encoders,tbl_src,tbl_evnt,disk_engine)
+
 
     # sys.exit()
     gru_dict = {}
